@@ -146,27 +146,16 @@ my $acc_lov_credit = "SELECT account_code || ' - ' || name_ar d, account_id r FR
 page(id => 50, name => 'فاتورة مبيعات', alias => 'SALES', title => '&P50_TITLE.', auth => 'IS_STORE',
      js => src('p50.js'),
      onload => "inv.init();\n" . sprintf($SAVE_KEYS, 'P50_STATUS', 'P50_STATUS', 'DRAFT',
-       "['P50_CUSTOMER_TYPE','P50_CUSTOMER_COMPANY_ID','P50_PAY_TYPE','P50_PAY_METHOD','P50_ACCOUNT_ID','P50_CUSTOMER_NAME','P50_INVOICE_DATE','P50_WAREHOUSE_ID','P50_PRICE_LIST_ID','P50_CURRENCY_CODE','P50_EXCHANGE_RATE','P50_DISCOUNT_AMOUNT','P50_DESCRIPTION']"));
+       "['P50_PAY_TYPE','P50_ACCOUNT_ID','P50_CUSTOMER_NAME','P50_INVOICE_DATE','P50_WAREHOUSE_ID','P50_PRICE_LIST_ID','P50_CURRENCY_CODE','P50_EXCHANGE_RATE','P50_DISCOUNT_AMOUNT','P50_DESCRIPTION']"));
 region(name => 'head', title => '&P50_TITLE.', type => 'static', html => doc_status_html('P50_INVOICE_NO', 'P50_STATUS', 'رقم الفاتورة'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1]) for (['P50_INVOICE_ID',1],['P50_INVOICE_TYPE',2],['P50_INVOICE_NO',3],['P50_STATUS',4],['P50_JOURNAL_ID',5],['P50_TITLE',6]);
-item(name => 'P50_CUSTOMER_TYPE', region => 'head', type => 'select', label => 'العميل', seq => 10, submit => 1, required => 1,
-     lov => "SELECT 'عميل خارجي' d, 'EXTERNAL' r FROM dual UNION ALL SELECT 'فرع من فروع الشركة', 'BRANCH' FROM dual");
-item(name => 'P50_INVOICE_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, same_line => 1, required => 1);
-# فرع
-item(name => 'P50_CUSTOMER_COMPANY_ID', region => 'head', type => 'select', label => 'الفرع (آجل على حسابه)', lov => $LOV{subs}, null => 1,
-     seq => 30, required => 1, cond => ":P50_CUSTOMER_TYPE = 'BRANCH'");
-# عميل خارجي
-item(name => 'P50_PAY_TYPE', region => 'head', type => 'select', label => 'طريقة الدفع', seq => 40, submit => 1,
-     cond => ":P50_CUSTOMER_TYPE = 'EXTERNAL'",
+item(name => 'P50_INVOICE_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 10, required => 1);
+item(name => 'P50_PAY_TYPE', region => 'head', type => 'select', label => 'طريقة الدفع', seq => 20, same_line => 1,
      lov => "SELECT 'نقدي' d, 'CASH' r FROM dual UNION ALL SELECT 'آجل' d, 'CREDIT' r FROM dual");
-item(name => 'P50_PAY_METHOD', region => 'head', type => 'select', label => 'نقداً عن طريق', seq => 50, same_line => 1, submit => 1,
-     cond => ":P50_CUSTOMER_TYPE = 'EXTERNAL' AND :P50_PAY_TYPE = 'CASH'",
-     lov => "SELECT 'الصندوق' d, 'CASH' r FROM dual UNION ALL SELECT 'تحويل بنكي' d, 'BANK' r FROM dual");
-item(name => 'P50_ACCOUNT_ID', region => 'head', type => 'popup', seq => 60, same_line => 1, required => 1,
-     label => '&P50_ACC_LABEL.', cond => ":P50_CUSTOMER_TYPE = 'EXTERNAL'",
-     lov => "SELECT d, r FROM (" . sprintf($acc_lov_cash, 'P50_PAY_METHOD') . ") WHERE :P50_PAY_TYPE = 'CASH' UNION ALL SELECT d, r FROM ($acc_lov_credit) WHERE :P50_PAY_TYPE = 'CREDIT'");
-item(name => 'P50_ACC_LABEL', region => 'head', type => 'hidden', seq => 7);
-item(name => 'P50_CUSTOMER_NAME', region => 'head', label => 'اسم العميل', seq => 70, max => 150, cond => ":P50_CUSTOMER_TYPE = 'EXTERNAL'");
+# الخيارات تُبنى بالمتصفح حسب طريقة الدفع ، والاستعلام هنا يعرض الحساب المحفوظ فقط
+item(name => 'P50_ACCOUNT_ID', region => 'head', type => 'select', label => 'الحساب', seq => 30, same_line => 1, null => '- اختر -',
+     lov => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE account_id = :P50_ACCOUNT_ID");
+item(name => 'P50_CUSTOMER_NAME', region => 'head', label => 'اسم العميل (اختياري)', seq => 40, max => 150);
 item(name => 'P50_WAREHOUSE_ID', region => 'head', type => 'select', label => 'المخزن', seq => 80, required => 1,
      lov => "SELECT name_ar d, warehouse_id r FROM warehouses WHERE company_id = :G_PARENT_ID AND is_active = 'Y' ORDER BY name_ar");
 item(name => 'P50_PRICE_LIST_ID', region => 'head', type => 'select', label => 'قائمة الأسعار (اختياري)', seq => 90, same_line => 1, null => 'بدون',
@@ -199,9 +188,9 @@ DECLARE i invoices%ROWTYPE;
 BEGIN
   :P50_LOADED_ID := :P50_INVOICE_ID;
   SELECT * INTO i FROM invoices WHERE invoice_id = :P50_INVOICE_ID;
-  :P50_INVOICE_TYPE := i.invoice_type; :P50_INVOICE_NO := i.invoice_no; :P50_CUSTOMER_TYPE := i.customer_type;
-  :P50_CUSTOMER_COMPANY_ID := i.customer_company_id; :P50_INVOICE_DATE := TO_CHAR(i.invoice_date, 'DD/MM/YYYY');
-  :P50_PAY_TYPE := i.pay_type; :P50_PAY_METHOD := i.pay_method; :P50_ACCOUNT_ID := i.account_id;
+  :P50_INVOICE_TYPE := i.invoice_type; :P50_INVOICE_NO := i.invoice_no;
+  :P50_INVOICE_DATE := TO_CHAR(i.invoice_date, 'DD/MM/YYYY');
+  :P50_PAY_TYPE := i.pay_type; :P50_ACCOUNT_ID := i.account_id;
   :P50_CUSTOMER_NAME := i.customer_name; :P50_WAREHOUSE_ID := i.warehouse_id; :P50_PRICE_LIST_ID := i.price_list_id;
   :P50_CURRENCY_CODE := i.currency_code; :P50_EXCHANGE_RATE := i.exchange_rate;
   :P50_DISCOUNT_AMOUNT := i.discount_amount; :P50_DESCRIPTION := i.description;
@@ -210,18 +199,16 @@ END;
 SQL
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\n",
   "IF :P50_INVOICE_TYPE IS NULL THEN :P50_INVOICE_TYPE := 'SALE'; END IF;",
-  "IF :P50_CUSTOMER_TYPE IS NULL THEN :P50_CUSTOMER_TYPE := 'EXTERNAL'; END IF;",
   "IF :P50_PAY_TYPE IS NULL THEN :P50_PAY_TYPE := 'CASH'; END IF;",
-  "IF :P50_PAY_TYPE = 'CASH' AND :P50_PAY_METHOD IS NULL THEN :P50_PAY_METHOD := 'CASH'; END IF;",
   "IF :P50_INVOICE_ID IS NULL THEN",
   "  IF :P50_STATUS IS NULL THEN :P50_STATUS := 'DRAFT'; END IF;",
   "  IF :P50_WAREHOUSE_ID IS NULL THEN SELECT MIN(warehouse_id) INTO :P50_WAREHOUSE_ID FROM warehouses WHERE company_id = :G_PARENT_ID AND is_active = 'Y'; END IF;",
   '  ' . date_default('P50_INVOICE_DATE'), '  ' . base_cur_default('P50_CURRENCY_CODE', 'P50_EXCHANGE_RATE'),
   'END IF;',
-  ":P50_TITLE := CASE :P50_INVOICE_TYPE WHEN 'SALE' THEN 'فاتورة مبيعات' ELSE 'مرتجع مبيعات' END;",
-  ":P50_ACC_LABEL := CASE WHEN :P50_PAY_TYPE = 'CREDIT' THEN 'حساب العميل' WHEN :P50_PAY_METHOD = 'BANK' THEN 'الحساب البنكي' ELSE 'الصندوق' END;"));
+  ":P50_TITLE := CASE :P50_INVOICE_TYPE WHEN 'SALE' THEN 'فاتورة مبيعات' ELSE 'مرتجع مبيعات' END;"));
 ajax('INIT_DATA', src('p50_init.sql'));
 ajax('SAVE_DOC',  src('p50_save.sql'));
+ajax('PAY_ACCOUNTS', src('pay_accounts.sql'));
 branch_self();
 end_page();
 
@@ -236,21 +223,17 @@ end_page();
 page(id => 55, name => 'فاتورة مشتريات', alias => 'PURCHASE', title => '&P55_TITLE.', auth => 'IS_STORE',
      js => src('p55.js'),
      onload => "pur.init();\n" . sprintf($SAVE_KEYS, 'P55_STATUS', 'P55_STATUS', 'DRAFT',
-       "['P55_INVOICE_DATE','P55_SUPPLIER_INV_NO','P55_PAY_TYPE','P55_PAY_METHOD','P55_SUPPLIER_ACCOUNT_ID','P55_SUPPLIER_NAME','P55_WAREHOUSE_ID','P55_CURRENCY_CODE','P55_EXCHANGE_RATE','P55_DISCOUNT_AMOUNT','P55_DESCRIPTION']"));
+       "['P55_INVOICE_DATE','P55_SUPPLIER_INV_NO','P55_PAY_TYPE','P55_SUPPLIER_ACCOUNT_ID','P55_SUPPLIER_NAME','P55_WAREHOUSE_ID','P55_CURRENCY_CODE','P55_EXCHANGE_RATE','P55_DISCOUNT_AMOUNT','P55_DESCRIPTION']"));
 region(name => 'head', title => '&P55_TITLE.', type => 'static', html => doc_status_html('P55_INVOICE_NO', 'P55_STATUS', 'رقم الفاتورة'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1]) for (['P55_PINV_ID',1],['P55_INVOICE_TYPE',2],['P55_INVOICE_NO',3],['P55_STATUS',4],['P55_JOURNAL_ID',5],['P55_TITLE',6]);
 item(name => 'P55_COMPANY_ID', region => 'head', type => 'hidden', seq => 7);
 item(name => 'P55_LOADED_ID', region => 'head', type => 'hidden', seq => 8);
-item(name => 'P55_ACC_LABEL', region => 'head', type => 'hidden', seq => 9);
 item(name => 'P55_INVOICE_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, required => 1);
 item(name => 'P55_SUPPLIER_INV_NO', region => 'head', label => 'رقم فاتورة المورد', seq => 30, same_line => 1, max => 50);
-item(name => 'P55_PAY_TYPE', region => 'head', type => 'select', label => 'طريقة الدفع', seq => 40, submit => 1,
+item(name => 'P55_PAY_TYPE', region => 'head', type => 'select', label => 'طريقة الدفع', seq => 40,
      lov => "SELECT 'نقدي' d, 'CASH' r FROM dual UNION ALL SELECT 'آجل' d, 'CREDIT' r FROM dual");
-item(name => 'P55_PAY_METHOD', region => 'head', type => 'select', label => 'نقداً عن طريق', seq => 45, same_line => 1, submit => 1,
-     cond => ":P55_PAY_TYPE = 'CASH'",
-     lov => "SELECT 'الصندوق' d, 'CASH' r FROM dual UNION ALL SELECT 'تحويل بنكي' d, 'BANK' r FROM dual");
-item(name => 'P55_SUPPLIER_ACCOUNT_ID', region => 'head', type => 'popup', label => '&P55_ACC_LABEL.', seq => 50, same_line => 1, required => 1,
-     lov => "SELECT d, r FROM (" . sprintf($acc_lov_cash, 'P55_PAY_METHOD') . ") WHERE :P55_PAY_TYPE = 'CASH' UNION ALL SELECT d, r FROM ($acc_lov_credit) WHERE :P55_PAY_TYPE = 'CREDIT'");
+item(name => 'P55_SUPPLIER_ACCOUNT_ID', region => 'head', type => 'select', label => 'الحساب', seq => 50, same_line => 1, null => '- اختر -',
+     lov => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE account_id = :P55_SUPPLIER_ACCOUNT_ID");
 item(name => 'P55_SUPPLIER_NAME', region => 'head', label => 'اسم المورد', seq => 60, same_line => 1, max => 150);
 item(name => 'P55_WAREHOUSE_ID', region => 'head', type => 'select', label => 'المخزن', seq => 70, null => 1, required => 1,
      lov => "SELECT name_ar d, warehouse_id r FROM warehouses WHERE company_id = :G_PARENT_ID AND is_active = 'Y' ORDER BY name_ar");
@@ -284,7 +267,7 @@ BEGIN
   END IF;
   :P55_INVOICE_TYPE := p.invoice_type; :P55_INVOICE_NO := p.invoice_no; :P55_COMPANY_ID := p.company_id;
   :P55_INVOICE_DATE := TO_CHAR(p.invoice_date, 'DD/MM/YYYY'); :P55_SUPPLIER_INV_NO := p.supplier_inv_no;
-  :P55_PAY_TYPE := p.pay_type; :P55_PAY_METHOD := p.pay_method; :P55_SUPPLIER_ACCOUNT_ID := p.supplier_account_id; :P55_SUPPLIER_NAME := p.supplier_name;
+  :P55_PAY_TYPE := p.pay_type; :P55_SUPPLIER_ACCOUNT_ID := p.supplier_account_id; :P55_SUPPLIER_NAME := p.supplier_name;
   :P55_WAREHOUSE_ID := p.warehouse_id; :P55_CURRENCY_CODE := p.currency_code; :P55_EXCHANGE_RATE := p.exchange_rate;
   :P55_DISCOUNT_AMOUNT := p.discount_amount; :P55_DESCRIPTION := p.description; :P55_STATUS := p.status;
   :P55_JOURNAL_ID := p.journal_id;
@@ -299,11 +282,10 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   "  IF :P55_PAY_TYPE IS NULL THEN :P55_PAY_TYPE := 'CREDIT'; END IF;",
   '  ' . date_default('P55_INVOICE_DATE'), '  ' . base_cur_default('P55_CURRENCY_CODE', 'P55_EXCHANGE_RATE'),
   'END IF;',
-  "IF :P55_PAY_TYPE = 'CASH' AND :P55_PAY_METHOD IS NULL THEN :P55_PAY_METHOD := 'CASH'; END IF;",
-  ":P55_ACC_LABEL := CASE WHEN :P55_PAY_TYPE = 'CREDIT' THEN 'حساب المورد' WHEN :P55_PAY_METHOD = 'BANK' THEN 'الحساب البنكي' ELSE 'الصندوق' END;",
   ":P55_TITLE := CASE :P55_INVOICE_TYPE WHEN 'PURCHASE' THEN 'فاتورة مشتريات' ELSE 'مرتجع مشتريات' END;"));
 ajax('INIT_DATA', src('p55_init.sql'));
 ajax('SAVE_DOC',  src('p55_save.sql'));
+ajax('PAY_ACCOUNTS', src('pay_accounts.sql'));
 branch_self();
 end_page();
 

@@ -43,8 +43,6 @@ BEGIN
   l_company := :G_PARENT_ID;
   IF :G_USER_ROLE NOT IN ('GM','ACCOUNTANT','STORE') THEN err('ليس لديك صلاحية على فواتير المشتريات'); END IF;
   IF l_pay NOT IN ('CASH','CREDIT') OR l_pay IS NULL THEN err('اختر طريقة الدفع'); END IF;
-  IF l_pay = 'CASH' AND NVL(l_method, 'x') NOT IN ('CASH','BANK') THEN err('اختر: صندوق أو تحويل بنكي'); END IF;
-  IF l_pay = 'CREDIT' THEN l_method := NULL; END IF;
 
   SELECT COUNT(*) INTO l_cnt FROM warehouses WHERE warehouse_id = l_wh AND company_id = l_company AND is_active = 'Y';
   IF l_cnt = 0 THEN err('اختر مخزناً تابعاً للشركة'); END IF;
@@ -52,10 +50,16 @@ BEGIN
   SELECT COUNT(*) INTO l_cnt FROM accounts
   WHERE account_id = l_acc AND is_postable = 'Y' AND is_active = 'Y'
   AND (company_id IS NULL OR company_id = l_company)
-  AND (l_pay = 'CREDIT' AND cash_bank = 'N' OR l_pay = 'CASH' AND cash_bank = CASE l_method WHEN 'BANK' THEN 'B' ELSE 'C' END);
+  AND (l_pay = 'CREDIT' AND cash_bank = 'N' OR l_pay = 'CASH' AND cash_bank IN ('C','B'));
   IF l_cnt = 0 THEN
-    err(CASE WHEN l_pay = 'CREDIT' THEN 'اختر حساب المورد' WHEN l_method = 'BANK' THEN 'اختر الحساب البنكي' ELSE 'اختر الصندوق' END);
+    err(CASE WHEN l_pay = 'CREDIT' THEN 'اختر حساب المورد' ELSE 'اختر الصندوق أو الحساب البنكي' END);
   END IF;
+  -- طريقة النقد تُستنتج من الحساب: بنك أو صندوق
+  BEGIN
+    SELECT CASE cash_bank WHEN 'B' THEN 'BANK' WHEN 'C' THEN 'CASH' END INTO l_method FROM accounts WHERE account_id = l_acc;
+  EXCEPTION WHEN NO_DATA_FOUND THEN l_method := NULL;
+  END;
+  IF l_pay = 'CREDIT' THEN l_method := NULL; END IF;
 
   IF l_cur IS NULL OR NVL(l_rate, 0) <= 0 THEN err('العملة أو سعر الصرف غير صحيح'); END IF;
   SELECT COUNT(*) INTO l_cnt FROM currencies WHERE currency_code = l_cur AND is_base = 'Y';

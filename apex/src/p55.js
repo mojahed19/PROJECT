@@ -51,6 +51,9 @@ var pur = {
     document.addEventListener('keydown', function (e) {
       if (e.ctrlKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); pur.save('DRAFT'); }
     });
+    // طريقة الدفع: تتغير قائمة الحسابات فوراً
+    DocUtil.payAccounts('P55_PAY_TYPE', 'P55_SUPPLIER_ACCOUNT_ID', 'PURCHASE', true);
+    apex.jQuery('#P55_PAY_TYPE').on('change', function () { DocUtil.payAccounts('P55_PAY_TYPE', 'P55_SUPPLIER_ACCOUNT_ID', 'PURCHASE', false); });
     EnterNav.first('#main');
   },
 

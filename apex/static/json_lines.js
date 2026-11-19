@@ -515,6 +515,24 @@ window.DocUtil = {
       .done(function (d) { if (d.rate) apex.item(rateItem).setValue(d.rate); });
   },
 
+  // قائمة الحسابات حسب طريقة الدفع (نقدي: الصناديق والبنوك ، آجل: العملاء / الموردون)
+  // تُبنى خيارات القائمة في المتصفح دون إعادة تحميل الصفحة (Ajax Callback اسمه PAY_ACCOUNTS)
+  payAccounts: function (payItem, accItem, kind, keepValue) {
+    var sel = document.getElementById(accItem);
+    if (!sel) return;
+    var pay = apex.item(payItem).getValue() || 'CASH';
+    var v = keepValue ? apex.item(accItem).getValue() : '';
+    var lbl = document.querySelector('label[for="' + accItem + '"]');
+    if (lbl) lbl.textContent = pay === 'CASH' ? 'الصندوق / الحساب البنكي' : (kind === 'PURCHASE' ? 'حساب المورد' : 'حساب العميل');
+    return apex.server.process('PAY_ACCOUNTS', {x01: pay, x02: kind}, {dataType: 'json'}).done(function (list) {
+      var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+      sel.innerHTML = '<option value="">- اختر -</option>' + list.map(function (o) {
+        return '<option value="' + esc(o.v) + '">' + esc(o.t) + '</option>';
+      }).join('');
+      sel.value = list.some(function (o) { return String(o.v) === String(v); }) ? v : '';
+    });
+  },
+
   showErrors: function (errs) {
     apex.message.clearErrors();
     apex.message.showErrors(errs.map(function (m) {

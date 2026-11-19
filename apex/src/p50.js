@@ -52,6 +52,9 @@ var inv = {
     document.addEventListener('keydown', function (e) {
       if (e.ctrlKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); inv.save('DRAFT'); }
     });
+    // طريقة الدفع: تتغير قائمة الحسابات فوراً
+    DocUtil.payAccounts('P50_PAY_TYPE', 'P50_ACCOUNT_ID', 'SALE', true);
+    apex.jQuery('#P50_PAY_TYPE').on('change', function () { DocUtil.payAccounts('P50_PAY_TYPE', 'P50_ACCOUNT_ID', 'SALE', false); });
     EnterNav.first('#main');
   },
 
@@ -79,16 +82,14 @@ var inv = {
   save: function (action) {
     var errs = [], g = function (n) { return apex.item('P50_' + n).getValue(); };
     if (!g('WAREHOUSE_ID')) errs.push('اختر المخزن');
-    if (g('CUSTOMER_TYPE') === 'BRANCH' && !g('CUSTOMER_COMPANY_ID')) errs.push('اختر الفرع');
-    if (g('CUSTOMER_TYPE') === 'EXTERNAL' && !g('ACCOUNT_ID')) errs.push(g('PAY_TYPE') === 'CASH' ? 'اختر الصندوق أو الحساب البنكي' : 'اختر حساب العميل');
+    if (!g('ACCOUNT_ID')) errs.push(g('PAY_TYPE') === 'CASH' ? 'اختر الصندوق أو الحساب البنكي' : 'اختر حساب العميل');
     errs = errs.concat(inv.grid.validate());
     if (errs.length) { DocUtil.showErrors(errs); return; }
 
     var doc = {
       header: {
-        INVOICE_ID: g('INVOICE_ID'), INVOICE_TYPE: g('INVOICE_TYPE'), CUSTOMER_TYPE: g('CUSTOMER_TYPE'),
-        CUSTOMER_COMPANY_ID: g('CUSTOMER_COMPANY_ID'), INVOICE_DATE: g('INVOICE_DATE'),
-        PAY_TYPE: g('PAY_TYPE'), PAY_METHOD: g('PAY_METHOD'), ACCOUNT_ID: g('ACCOUNT_ID'),
+        INVOICE_ID: g('INVOICE_ID'), INVOICE_TYPE: g('INVOICE_TYPE'), INVOICE_DATE: g('INVOICE_DATE'),
+        PAY_TYPE: g('PAY_TYPE'), ACCOUNT_ID: g('ACCOUNT_ID'),
         CUSTOMER_NAME: g('CUSTOMER_NAME'), WAREHOUSE_ID: g('WAREHOUSE_ID'), PRICE_LIST_ID: g('PRICE_LIST_ID'),
         CURRENCY_CODE: g('CURRENCY_CODE'), EXCHANGE_RATE: g('EXCHANGE_RATE'),
         DISCOUNT_AMOUNT: JsonLines.toNum(g('DISCOUNT_AMOUNT')), DESCRIPTION: g('DESCRIPTION')
