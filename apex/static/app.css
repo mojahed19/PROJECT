@@ -1,0 +1,78 @@
+/* =====================================================================
+ * app.css - تنسيق جدول السطور JSON (يدعم RTL والوضع الداكن في Universal Theme)
+ * Shared Components > User Interface > CSS File URLs : #APP_FILES#app#MIN#.css
+ * ===================================================================== */
+.jl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: auto;
+}
+.jl-table th {
+  background: var(--ut-region-header-background-color, #f4f4f4);
+  border: 1px solid var(--ut-component-border-color, #ddd);
+  padding: 6px 4px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+.jl-table td {
+  border: 1px solid var(--ut-component-border-color, #ddd);
+  padding: 2px;
+  vertical-align: middle;
+}
+.jl-table tfoot td {
+  font-weight: 700;
+  background: var(--ut-region-header-background-color, #fafafa);
+  padding: 6px 4px;
+}
+.jl-table .jl-no  { width: 2.5em; text-align: center; color: #888; }
+.jl-table .jl-act { width: 2.5em; text-align: center; }
+.jl-req { color: #d0021b; }
+
+.jl-in {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 5px 6px;
+  font: inherit;
+  color: inherit;
+  border-radius: 2px;
+}
+.jl-in:focus {
+  outline: none;
+  border-color: var(--ut-palette-primary, #0572ce);
+  background: var(--ut-field-background-color, #fff);
+  box-shadow: 0 0 0 2px rgba(5, 114, 206, .15);
+}
+.jl-in[readonly], .jl-in[disabled] { color: #777; }
+.jl-num { text-align: left; direction: ltr; font-variant-numeric: tabular-nums; }
+.jl-code { width: 8.5em; direction: ltr; text-align: left; }
+.jl-lov  { white-space: nowrap; }
+.jl-name { display: inline-block; margin-inline-start: 6px; color: #555; font-size: 12px; }
+.jl-disp { display: block; padding: 5px 6px; }
+.jl-err  { border-color: #d0021b !important; background: #fff1f1 !important; }
+
+.jl-del {
+  border: 0; background: transparent; cursor: pointer; color: #b00; padding: 4px;
+}
+.jl-add { margin-top: 8px; }
+
+/* شريط الحالة في رأس المستند */
+.doc-status { display: inline-block; padding: 2px 10px; border-radius: 10px; font-weight: 600; font-size: 12px; }
+.doc-status--DRAFT    { background: #fff4ce; color: #7a5b00; }
+.doc-status--POSTED   { background: #dff6dd; color: #107c10; }
+.doc-status--APPROVED { background: #dff6dd; color: #107c10; }
+.doc-status--REVERSED { background: #fde7e9; color: #a80000; }
+.doc-status--CANCELLED{ background: #eee;    color: #555; }
+
+/* فرق المدين والدائن */
+.jv-diff     { font-weight: 700; }
+.jv-diff.ok  { color: #107c10; }
+.jv-diff.bad { color: #a80000; }
+
+@media (max-width: 640px) {
+  .jl-table { font-size: 12px; }
+  .jl-name  { display: block; margin: 0 6px 4px; }
+}
