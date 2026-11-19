@@ -309,7 +309,7 @@ sub item {
     %t = (display_as => "'NATIVE_SELECT_LIST'", lov => txt($i{lov}),
           lov_display_null => $i{null} ? "'YES'" : undef, lov_null_text => $i{null} ? lit($i{null} eq '1' ? '' : $i{null}) : undef,
           cHeight => 1, lov_display_extra => $i{extra} ? "'YES'" : "'NO'",
-          attribute_01 => $i{submit} ? "'SUBMIT'" : "'NONE'", attribute_03 => $i{submit} ? "'N'" : undef);
+          attribute_01 => $i{submit} ? "'SUBMIT'" : "'NONE'");
   } elsif ($type eq 'popup') {
     %t = (display_as => "'NATIVE_POPUP_LOV'", lov => txt($i{lov}), cSize => 30,
           lov_display_null => "'YES'", lov_display_extra => "'NO'",
@@ -342,7 +342,7 @@ sub item {
     colspan               => $i{span},
     field_template        => wid($T{$fld}),
     item_template_options => "'#DEFAULT#'",
-    is_required           => $i{required} && $type ne 'hidden' ? 'true' : undef,
+    is_required           => $i{required} && $i{col} && $type ne 'hidden' ? 'true' : undef,   # الصفحات بدون نموذج: التحقق في الخادم
     is_persistent         => "'N'",
     protection_level      => $type eq 'hidden' && $i{protected} ? "'S'" : undef,
     display_when          => $i{cond} ? lit($i{cond}) : undef,

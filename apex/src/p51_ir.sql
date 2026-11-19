@@ -10,7 +10,9 @@ SELECT i.invoice_id,
        w.name_ar AS "المخزن",
        i.net_amount AS "الصافي", i.currency_code AS "العملة",
        ROUND(i.net_amount * i.exchange_rate, 2) * DECODE(i.invoice_type,'SALE',1,-1) AS "بالعملة الأساسية",
-       DECODE(i.status,'DRAFT','مسودة','POSTED','مرحّلة','REVERSED','معكوسة') AS "الحالة"
+       DECODE(i.status,'DRAFT','مسودة','POSTED','مرحّلة','REVERSED','معكوسة') AS "الحالة",
+       'طباعة' AS "طباعة A4",
+       'إيصال' AS "إيصال"
 FROM invoices i
 LEFT JOIN companies c ON c.company_id = i.customer_company_id
 LEFT JOIN accounts  a ON a.account_id = i.account_id

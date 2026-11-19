@@ -1,5 +1,5 @@
 SELECT v.voucher_id,
-       DECODE(v.voucher_type,'R','قبض','صرف') AS "النوع",
+       DECODE(v.voucher_type,'R','إذن توريد','إذن صرف') AS "النوع",
        c.name_ar AS "الشركة", v.voucher_no AS "الرقم", v.voucher_date AS "التاريخ",
        a.name_ar AS "الصندوق/البنك", v.party_name AS "الاسم",
        v.total_amount AS "المبلغ", v.currency_code AS "العملة",

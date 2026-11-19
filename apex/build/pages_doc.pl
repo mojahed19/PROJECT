@@ -86,13 +86,13 @@ branch_self();
 end_page();
 
 # =====================================================================
-# 40 سند قبض / صرف + 41 القائمة
+# 40 إذن توريد / إذن صرف + 41 القائمة
 # =====================================================================
-page(id => 40, name => 'سند قبض / صرف', alias => 'VOUCHER', title => '&P40_TITLE.', auth => 'IS_ACCOUNTANT',
+page(id => 40, name => 'إذن توريد / صرف', alias => 'VOUCHER', title => '&P40_TITLE.', auth => 'IS_ACCOUNTANT',
      js => src('p40.js'),
      onload => "vch.init();\n" . sprintf($SAVE_KEYS, 'P40_STATUS', 'P40_STATUS', 'DRAFT',
        "['P40_COMPANY_ID','P40_VOUCHER_DATE','P40_CASH_ACCOUNT_ID','P40_CURRENCY_CODE','P40_EXCHANGE_RATE','P40_PAY_METHOD','P40_CHEQUE_NO','P40_CHEQUE_DATE','P40_BANK_NAME','P40_PARTY_NAME','P40_DESCRIPTION']"));
-region(name => 'head', title => '&P40_TITLE.', type => 'static', html => doc_status_html('P40_VOUCHER_NO', 'P40_STATUS', 'رقم السند'));
+region(name => 'head', title => '&P40_TITLE.', type => 'static', html => doc_status_html('P40_VOUCHER_NO', 'P40_STATUS', 'رقم الإذن'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1]) for (['P40_VOUCHER_ID',1],['P40_VOUCHER_TYPE',2],['P40_VOUCHER_NO',3],['P40_STATUS',4],['P40_JOURNAL_ID',5],['P40_TITLE',6]);
 item(name => 'P40_COMPANY_ID', region => 'head', type => 'select', label => 'الشركة', lov => $LOV{companies}, seq => 10, required => 1);
 item(name => 'P40_VOUCHER_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, same_line => 1, required => 1);
@@ -107,7 +107,7 @@ item(name => 'P40_BANK_NAME', region => 'head', label => 'البنك', seq => 90
 item(name => 'P40_PARTY_NAME', region => 'head', label => 'الاسم (استلمنا من / صرفنا إلى)', seq => 100);
 item(name => 'P40_DESCRIPTION', region => 'head', label => 'البيان', seq => 110, same_line => 1, max => 500);
 region(name => 'lines', title => 'الحسابات المقابلة', type => 'static', seq => 20,
-       html => "<div id=\"v_lines\"></div>\n<div style=\"margin-top:8px\"><b>إجمالي السند:</b> <span id=\"v_words\"></span></div>");
+       html => "<div id=\"v_lines\"></div>\n<div style=\"margin-top:8px\"><b>إجمالي الإذن:</b> <span id=\"v_words\"></span></div>");
 $draft = ":P40_STATUS IS NULL OR :P40_STATUS = 'DRAFT'";
 button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ مسودة (Ctrl+S)', js => "vch.save('DRAFT');", seq => 10, cond => $draft);
 button(name => 'POST', region => 'lines', label => 'حفظ وترحيل', js => "vch.save('POST');", hot => 1, seq => 20, cond => $draft);
@@ -123,17 +123,17 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   "  IF :P40_PAY_METHOD IS NULL THEN :P40_PAY_METHOD := 'CASH'; END IF;",
   '  ' . date_default('P40_VOUCHER_DATE'), '  ' . base_cur_default('P40_CURRENCY_CODE', 'P40_EXCHANGE_RATE'),
   'END IF;',
-  ":P40_TITLE := CASE :P40_VOUCHER_TYPE WHEN 'R' THEN 'سند قبض' ELSE 'سند صرف' END;"));
+  ":P40_TITLE := CASE :P40_VOUCHER_TYPE WHEN 'R' THEN 'إذن توريد' ELSE 'إذن صرف' END;"));
 ajax('INIT_DATA', src('p40_init.sql'));
 ajax('SAVE_DOC',  src('p40_save.sql'));
 branch_self();
 end_page();
 
-page(id => 41, name => 'قائمة السندات', alias => 'VOUCHERS', auth => 'IS_ACCOUNTANT');
+page(id => 41, name => 'قائمة الأذونات', alias => 'VOUCHERS', auth => 'IS_ACCOUNTANT');
 region(name => 'f', title => 'بحث', type => 'static', html => '', seq => 5);
 item(name => 'P41_TYPE', region => 'f', type => 'select', label => 'النوع', null => 'الكل', submit => 1,
-     lov => "SELECT 'قبض' d, 'R' r FROM dual UNION ALL SELECT 'صرف', 'P' FROM dual");
-region(name => 'ir', title => 'السندات', type => 'ir', sql => src('p41_ir.sql'), seq => 10,
+     lov => "SELECT 'توريد' d, 'R' r FROM dual UNION ALL SELECT 'صرف', 'P' FROM dual");
+region(name => 'ir', title => 'أذونات التوريد والصرف', type => 'ir', sql => src('p41_ir.sql'), seq => 10,
        links => { 'الرقم' => 'f?p=&APP_ID.:40:&SESSION.::&DEBUG.:40:P40_VOUCHER_ID:#VOUCHER_ID#' });
 end_page();
 
@@ -227,7 +227,7 @@ end_page();
 
 page(id => 51, name => 'قائمة المبيعات', alias => 'INVOICES', auth => 'IS_STORE');
 region(name => 'ir', title => 'فواتير المبيعات والمرتجعات', type => 'ir', sql => src('p51_ir.sql'), hide => ['INVOICE_TYPE_CODE'],
-       links => { 'الرقم' => 'f?p=&APP_ID.:50:&SESSION.::&DEBUG.:50:P50_INVOICE_ID:#INVOICE_ID#' });
+       links => { 'الرقم' => 'f?p=&APP_ID.:50:&SESSION.::&DEBUG.:50:P50_INVOICE_ID:#INVOICE_ID#', 'طباعة A4' => 'f?p=&APP_ID.:53:&SESSION.::&DEBUG.:53:P53_INVOICE_ID:#INVOICE_ID#', 'إيصال' => 'f?p=&APP_ID.:54:&SESSION.::&DEBUG.:54:P54_INVOICE_ID:#INVOICE_ID#' });
 end_page();
 
 # =====================================================================
@@ -309,7 +309,7 @@ end_page();
 
 page(id => 56, name => 'قائمة المشتريات', alias => 'PURCHASES', auth => 'IS_STORE');
 region(name => 'ir', title => 'فواتير المشتريات والمرتجعات', type => 'ir', sql => src('p56_ir.sql'), hide => ['INVOICE_TYPE_CODE'],
-       links => { 'الرقم' => 'f?p=&APP_ID.:55:&SESSION.::&DEBUG.:55:P55_PINV_ID,P55_INVOICE_TYPE:#PINV_ID#,#INVOICE_TYPE_CODE#' });
+       links => { 'الرقم' => 'f?p=&APP_ID.:55:&SESSION.::&DEBUG.:55:P55_PINV_ID,P55_INVOICE_TYPE:#PINV_ID#,#INVOICE_TYPE_CODE#', 'طباعة A4' => 'f?p=&APP_ID.:57:&SESSION.::&DEBUG.:57:P57_PINV_ID:#PINV_ID#' });
 end_page();
 
 # =====================================================================

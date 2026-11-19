@@ -35,10 +35,10 @@ BEGIN
            description     VARCHAR2(500) PATH '$.DESCRIPTION')) h;
 
   l_jt := CASE l_type WHEN 'R' THEN 'RV' WHEN 'P' THEN 'PV' END;
-  IF l_jt IS NULL THEN err('نوع السند غير معروف'); END IF;
+  IF l_jt IS NULL THEN err('نوع الإذن غير معروف'); END IF;
 
   BEGIN l_date := TO_DATE(l_date_s, 'DD/MM/YYYY');
-  EXCEPTION WHEN OTHERS THEN err('تاريخ السند غير صحيح'); END;
+  EXCEPTION WHEN OTHERS THEN err('تاريخ الإذن غير صحيح'); END;
 
   IF l_company IS NULL THEN err('اختر الشركة'); END IF;
   IF l_cash    IS NULL THEN err('اختر الصندوق أو البنك'); END IF;
@@ -68,8 +68,8 @@ BEGIN
   IF l_id IS NOT NULL THEN
     BEGIN
       SELECT status, voucher_no INTO l_status, l_no FROM vouchers WHERE voucher_id = l_id FOR UPDATE;
-      IF l_status <> 'DRAFT' THEN err('السند مرحّل ولا يمكن تعديله'); END IF;
-    EXCEPTION WHEN NO_DATA_FOUND THEN err('السند غير موجود'); END;
+      IF l_status <> 'DRAFT' THEN err('الإذن مرحّل ولا يمكن تعديله'); END IF;
+    EXCEPTION WHEN NO_DATA_FOUND THEN err('الإذن غير موجود'); END;
   END IF;
 
   FOR r IN (SELECT * FROM JSON_TABLE(l_clob, '$.lines[*]' COLUMNS (
@@ -92,7 +92,7 @@ BEGIN
     RETURN;
   END IF;
 
-  ------------------------------------------------------------------ حفظ السند
+  ------------------------------------------------------------------ حفظ الإذن
   IF l_id IS NULL THEN
     UPDATE doc_sequences SET last_no = last_no + 1
     WHERE company_id = l_company AND doc_type = l_jt AND fy_year = EXTRACT(YEAR FROM l_date)
@@ -134,7 +134,7 @@ BEGIN
                           description, ref_no, status, source_type, source_id,
                           total_debit, total_credit, created_by, posted_by, posted_on)
     VALUES (l_company, l_jt, l_no, l_date, l_cur, l_rate,
-            NVL(l_desc, CASE l_type WHEN 'R' THEN 'سند قبض ' ELSE 'سند صرف ' END || l_no),
+            NVL(l_desc, CASE l_type WHEN 'R' THEN 'إذن توريد ' ELSE 'إذن صرف ' END || l_no),
             l_chq_no, 'POSTED', 'VOUCHER', l_id, l_total, l_total, :APP_USER, :APP_USER, SYSDATE)
     RETURNING journal_id INTO l_jid;
 
@@ -175,7 +175,7 @@ BEGIN
   apex_json.write('ok', TRUE);
   apex_json.write('id', l_id);
   apex_json.write('no', l_no);
-  apex_json.write('message', CASE WHEN l_action = 'POST' THEN 'تم ترحيل السند ' ELSE 'تم حفظ السند ' END || l_no);
+  apex_json.write('message', CASE WHEN l_action = 'POST' THEN 'تم ترحيل الإذن ' ELSE 'تم حفظ الإذن ' END || l_no);
   apex_json.close_object;
 EXCEPTION WHEN OTHERS THEN
   ROLLBACK;

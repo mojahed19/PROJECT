@@ -66,7 +66,7 @@ var vch = {
         apex.page.submit({request: 'RELOAD', set: {P40_VOUCHER_ID: d.id}, showWait: true});
       });
     };
-    if (action === 'POST') apex.message.confirm('ترحيل السند وإنشاء القيد؟', function (ok) { if (ok) go(); });
+    if (action === 'POST') apex.message.confirm('ترحيل الإذن وإنشاء القيد؟', function (ok) { if (ok) go(); });
     else go();
   }
 };

@@ -20,6 +20,8 @@ PROMPT ===== 05_sales.sql
 @db/05_sales.sql
 PROMPT ===== 06_branch_balances.sql
 @db/06_branch_balances.sql
+PROMPT ===== 07_rename_vouchers.sql
+@db/07_rename_vouchers.sql
 
 PROMPT ===== Invalid objects check
 SELECT object_type, object_name FROM user_objects WHERE status = 'INVALID';

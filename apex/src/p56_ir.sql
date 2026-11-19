@@ -6,7 +6,8 @@ SELECT p.pinv_id,
        p.net_amount AS "الصافي", p.currency_code AS "العملة",
        ROUND(p.net_amount * p.exchange_rate, 2) AS "بالعملة الأساسية",
        DECODE(p.status,'DRAFT','مسودة','POSTED','مرحّلة','REVERSED','معكوسة') AS "الحالة",
-       p.invoice_type AS invoice_type_code
+       p.invoice_type AS invoice_type_code,
+       'طباعة' AS "طباعة A4"
 FROM purchase_invoices p
 JOIN companies  c ON c.company_id = p.company_id
 JOIN accounts   a ON a.account_id = p.supplier_account_id
