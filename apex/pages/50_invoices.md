@@ -307,8 +307,8 @@ END;
 var inv = {
   grid: null,
 
-  units: function (row) {
-    var it = inv.grid.lovRecord('items', row.ITEM_ID);
+  units: function (row, g) {
+    var it = (g || inv.grid).lovRecord('items', row.ITEM_ID);
     return it ? it.units : [];
   },
 
