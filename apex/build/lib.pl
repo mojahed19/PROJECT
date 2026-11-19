@@ -116,8 +116,10 @@ sub region {
     %src = (plug_source => txt($r{html} // ''),
             attributes  => "wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(\n  'expand_shortcuts', 'N',\n  'output_as', 'HTML')).to_clob");
   } elsif ($r{type} eq 'plsql') {
+    push @main::PLSQL, ["P$CUR_PAGE region $r{name}", $r{plsql}];
     %src = (plug_source => txt($r{plsql}), plug_source_type => "'NATIVE_PLSQL'");
   } elsif ($r{type} eq 'ir') {
+    push @main::SQLQ, ["P$CUR_PAGE ir $r{name}", $r{sql}];
     %src = (query_type => "'SQL'", plug_source => txt($r{sql}), plug_source_type => "'NATIVE_IR'",
             prn_page_header => lit($r{title} // $r{name}));
   } elsif ($r{type} eq 'form') {
@@ -251,6 +253,7 @@ sub ir_columns {
 
 # عرض أي استعلام كجدول HTML داخل منطقة PL/SQL (لا يحتاج تعريف أعمدة)
 sub table_region {
+  { my %tq = @_; push @main::SQLQ, ["P$CUR_PAGE table $tq{name}", $tq{sql}]; }
   my %r = @_;
   my $q = $r{sql};
   $q =~ s/;\s*\z//;
@@ -306,11 +309,13 @@ sub item {
     %t = (display_as => "'NATIVE_TEXT_FIELD'", cSize => 30, cMaxlength => $i{max} // 4000,
           attribute_01 => "'N'", attribute_02 => "'N'", attribute_04 => "'TEXT'", attribute_05 => "'BOTH'");
   } elsif ($type eq 'select') {
+    push @main::SQLQ, ["P$CUR_PAGE lov $i{name}", $i{lov}];
     %t = (display_as => "'NATIVE_SELECT_LIST'", lov => txt($i{lov}),
           lov_display_null => $i{null} ? "'YES'" : undef, lov_null_text => $i{null} ? lit($i{null} eq '1' ? '' : $i{null}) : undef,
           cHeight => 1, lov_display_extra => $i{extra} ? "'YES'" : "'NO'",
           attribute_01 => $i{submit} ? "'SUBMIT'" : "'NONE'");
   } elsif ($type eq 'popup') {
+    push @main::SQLQ, ["P$CUR_PAGE lov $i{name}", $i{lov}];
     %t = (display_as => "'NATIVE_POPUP_LOV'", lov => txt($i{lov}), cSize => 30,
           lov_display_null => "'YES'", lov_display_extra => "'NO'",
           attribute_01 => "'POPUP'", attribute_02 => "'FIRST_ROWSET'", attribute_04 => "'N'", attribute_05 => "'N'");
@@ -390,6 +395,7 @@ sub process {
   my $id = nid();
   my %type;
   if (($p{kind} // 'plsql') eq 'plsql') {
+    push @main::PLSQL, ["P$CUR_PAGE process $p{name}", $p{code}];
     %type = (process_type => "'NATIVE_PLSQL'", process_sql_clob => txt($p{code}), process_clob_language => "'PLSQL'");
   } elsif ($p{kind} eq 'form_init') {
     %type = (region_id => wid($REG{"$CUR_PAGE:$p{region}"}), process_type => "'NATIVE_FORM_INIT'");

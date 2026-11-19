@@ -299,3 +299,42 @@ utf8::encode($OUT) if utf8::is_utf8($OUT);
 print $o $OUT;
 close $o;
 print "written $dst (" . length($OUT) . " bytes)\n";
+
+# =====================================================================
+# فحص الترجمة: كل كتل PL/SQL تُترجم داخل إجراء مؤقت، وكل استعلام يُحلَّل بـ DBMS_SQL.PARSE
+# الناتج: apex/build/out/check_N.sql (كتل تُشغَّل في SQL Commands، لا تنفّذ أي كود ولا تغيّر بيانات)
+# =====================================================================
+{
+  our (@PLSQL, @SQLQ);
+  for my $p (['INIT_USER', src('app_init_user.sql')], ['GET_RATE', src('app_get_rate.sql')], ['GET_ACCOUNTS', src('app_get_accounts.sql')]) {
+    push @PLSQL, ["APP process $p->[0]", $p->[1]];
+  }
+  mkdir "$BUILD/out";
+  my $q = sub { my $s = shift; die "delimiter ^ in code" if $s =~ /\^'/; "q'^" . $s . "^'" };
+  my @items;
+  for my $b (@PLSQL) {
+    my ($name, $code) = @$b;
+    my %binds; (my $c = $code) =~ s/(?<![:\w]):([A-Z][A-Z0-9_]*)/$binds{$1} = 1; "b_$1"/ge;
+    my $decl = join '', map { "  b_$_ VARCHAR2(32767);\n" } sort keys %binds;
+    push @items, ['P', $name, "CREATE OR REPLACE PROCEDURE zz_apex_chk AS\n$decl  l_test_doc CLOB;\nBEGIN\n$c\nEND;"];
+  }
+  for my $b (@SQLQ) {
+    my ($name, $sql) = @$b;
+    next unless defined $sql;
+    (my $s = $sql) =~ s/;\s*\z//;
+    push @items, ['S', $name, $s];
+  }
+  my $n = 0; my $part = 0;
+  while (my @chunk = splice(@items, 0, 30)) {
+    $part++;
+    my $body = "DECLARE\n  c INTEGER;\n  PROCEDURE chk_plsql (p_name VARCHAR2, p_code CLOB) IS\n  BEGIN\n    EXECUTE IMMEDIATE p_code;\n    FOR e IN (SELECT line, position, text FROM user_errors WHERE name = 'ZZ_APEX_CHK' AND attribute = 'ERROR' ORDER BY sequence) LOOP\n      dbms_output.put_line('ERR ' || p_name || ' L' || (e.line - 0) || ': ' || e.text);\n    END LOOP;\n  EXCEPTION WHEN OTHERS THEN dbms_output.put_line('ERR ' || p_name || ': ' || SQLERRM);\n  END;\n  PROCEDURE chk_sql (p_name VARCHAR2, p_sql CLOB) IS\n  BEGIN\n    c := dbms_sql.open_cursor;\n    dbms_sql.parse(c, p_sql, dbms_sql.native);\n    dbms_sql.close_cursor(c);\n  EXCEPTION WHEN OTHERS THEN\n    IF dbms_sql.is_open(c) THEN dbms_sql.close_cursor(c); END IF;\n    dbms_output.put_line('ERR ' || p_name || ': ' || SQLERRM);\n  END;\nBEGIN\n";
+    for my $it (@chunk) {
+      my ($k, $name, $code) = @$it;
+      $body .= ($k eq 'P' ? "  chk_plsql(" : "  chk_sql(") . lit($name) . ", " . $q->($code) . ");\n";
+      $n++;
+    }
+    $body .= "  BEGIN EXECUTE IMMEDIATE 'DROP PROCEDURE zz_apex_chk'; EXCEPTION WHEN OTHERS THEN NULL; END;\n  dbms_output.put_line('DONE part $part');\nEND;\n";
+    open my $o, '>:encoding(UTF-8)', "$BUILD/out/check_$part.sql" or die; print $o $body; close $o;
+  }
+  print "check scripts: $part parts, $n items\n";
+}

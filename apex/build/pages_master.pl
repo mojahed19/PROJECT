@@ -291,7 +291,7 @@ BEGIN
   :P10_IS_ACTIVE := a.is_active;
 END;
 SQL
-process(name => 'NEW_DEFAULTS', point => 'BEFORE_HEADER', seq => 20, cond => ':P10_ACCOUNT_ID IS NULL', code => <<'SQL');
+process(name => 'NEW_DEFAULTS', point => 'BEFORE_HEADER', seq => 20, cond => ':P10_ACCOUNT_ID IS NULL', code => (<<'SQL' =~ s{__SUGGEST__}{src('p10_suggest.sql')}er));
 DECLARE
   PROCEDURE s IS
   BEGIN
@@ -345,18 +345,5 @@ SQL
 ajax('SUGGEST', $suggest_ajax);
 branch_self();
 end_page();
-
-# اقتراح رقم الحساب عند فتح "حساب فرعي": نستخدم نفس كود الاقتراح
-{
-  our $OUT;
-  my $s = src('p10_suggest.sql');
-  $s =~ s/;\s*\z/;/;
-  $s =~ s/^DECLARE/DECLARE/;
-  my $lit_block = main::txt($s);
-  # استبدال العلامة داخل الكتلة المولّدة: الأسهل تشغيل الاقتراح كتلة متداخلة
-  my $marker = main::lit('    __SUGGEST__');
-  my $nested = join(",\n", map { main::lit("    $_") } split /\n/, $s);
-  $OUT =~ s/\Q$marker\E/$nested/;
-}
 
 1;
