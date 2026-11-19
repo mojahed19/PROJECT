@@ -43,16 +43,31 @@ db/03_phase2_tables.sql    جداول المخزون والرواتب ونقاط
 
 ## خطوات التركيب
 
-1. في SQL Developer أو SQLcl، بحساب الـ Schema المرتبطة بـ Workspace:
+### الطريقة السريعة (سكربت واحد)
+
+1. مرة واحدة فقط، بحساب SYS، أنشئ Schema الاختبار و Workspace:
    ```
-   @db/01_tables.sql
-   @db/02_seed.sql
-   @db/03_phase2_tables.sql
+   sqlplus sys@localhost:1521/orclpdb as sysdba @install/create_schema_workspace.sql
    ```
-   عدّل العملة الأساسية وأسماء الشركات في `02_seed.sql` قبل التشغيل.
+2. ثم شغّل سكربت التركيب. يُنزّل المشروع من GitHub، وينفّذ سكربتات قاعدة البيانات، وينزّل تطبيق APEX إن وُجد ملفه:
+   ```
+   install\install.cmd -DbUser GRP_TEST -Workspace GRP
+   ```
+   كلمة المرور تُطلب عند التشغيل ولا تُحفظ. السجلات في `install/logs`.
+
+| الخيار | الوظيفة |
+|---|---|
+| `-Database` | قاعدة البيانات (الافتراضي `localhost:1521/orclpdb`) |
+| `-Dir` | مجلد التنزيل (الافتراضي `%USERPROFILE%\PROJECT`) |
+| `-AppId` | رقم التطبيق (الافتراضي 100) |
+| `-Reset` | حذف جداول المشروع وإعادة إنشائها (يمسح البيانات) |
+| `-SkipDb` / `-SkipApp` | تخطي قاعدة البيانات أو التطبيق |
+
+### يدوياً
+
+1. بحساب الـ Schema: `@install/install_db.sql` من مجلد المشروع.
 2. أنشئ مستخدمي التطبيق في جدول `APP_USERS`. يجب أن يطابق `user_name` اسم الدخول في APEX بأحرف كبيرة.
-3. أنشئ تطبيقاً جديداً في APEX، ثم نفّذ ما في `apex/pages/00_application.md`.
-4. أنشئ الصفحات بالترتيب. كل ملف يحتوي على العناصر والكود الكامل للصفحة.
+3. التطبيق: `@install/install_app.sql GRP 100` (بعد إضافة `apex/app/f100.sql`).
 
 ## ما زال يحتاج إعداداً منك
 
