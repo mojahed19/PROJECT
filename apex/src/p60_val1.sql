@@ -1,0 +1,16 @@
+-- 1. حالة القيد والصلاحية
+DECLARE j journals%ROWTYPE; l_cnt NUMBER;
+BEGIN
+  SELECT * INTO j FROM journals WHERE journal_id = :P60_JOURNAL_ID;
+  IF j.status <> 'POSTED'            THEN RETURN 'القيد غير مرحّل أو معكوس مسبقاً'; END IF;
+  IF j.reversal_of_id IS NOT NULL
+     OR j.jt_code = 'REV'            THEN RETURN 'لا يمكن عكس قيد عكسي'; END IF;
+  SELECT COUNT(*) INTO l_cnt FROM invoices WHERE sub_journal_id = j.journal_id;
+  IF l_cnt > 0 THEN RETURN 'هذا قيد شركة فرعية ناتج عن فاتورة. اعكس قيد الشركة الأم'; END IF;
+  SELECT COUNT(*) INTO l_cnt FROM dual
+  WHERE :G_USER_ROLE = 'GM' OR j.company_id = :G_COMPANY_ID
+     OR EXISTS (SELECT 1 FROM user_companies WHERE user_name = UPPER(:APP_USER) AND company_id = j.company_id);
+  IF l_cnt = 0 THEN RETURN 'ليس لديك صلاحية على هذه الشركة'; END IF;
+  RETURN NULL;
+EXCEPTION WHEN NO_DATA_FOUND THEN RETURN 'القيد غير موجود';
+END;

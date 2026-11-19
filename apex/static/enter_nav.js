@@ -66,8 +66,8 @@
     // النص المتعدد: Shift+Enter = سطر جديد
     if (el.tagName === 'TEXTAREA' && e.shiftKey) return;
 
-    e.preventDefault();
-    move(el, e.shiftKey ? -1 : 1);
+    // آخر حقل في النموذج (مثل كلمة المرور في صفحة الدخول): نترك Enter يعمل طبيعياً (إرسال)
+    if (move(el, e.shiftKey ? -1 : 1)) e.preventDefault();
   }, false);
 
   // واجهة عامة تستخدمها شاشات JSON

@@ -1,0 +1,1 @@
+CASE :P70_ADJ_TYPE WHEN 'DED' THEN 'خصم' WHEN 'DIFF' THEN 'فرق مبلغ' ELSE 'حافز' END

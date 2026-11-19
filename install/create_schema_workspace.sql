@@ -9,9 +9,9 @@
 SET VERIFY OFF
 WHENEVER SQLERROR EXIT SQL.SQLCODE
 
-ACCEPT schema_name CHAR DEFAULT 'GRP_TEST' PROMPT 'اسم الـ Schema [GRP_TEST]: '
-ACCEPT schema_pass CHAR HIDE              PROMPT 'كلمة مرور الـ Schema: '
-ACCEPT ws_name     CHAR DEFAULT 'GRP'      PROMPT 'اسم الـ Workspace [GRP]: '
+ACCEPT schema_name CHAR DEFAULT 'GRP_TEST' PROMPT 'Schema name [GRP_TEST]: '
+ACCEPT schema_pass CHAR HIDE              PROMPT 'Schema password: '
+ACCEPT ws_name     CHAR DEFAULT 'GRP'      PROMPT 'Workspace name [GRP]: '
 
 CREATE USER &schema_name IDENTIFIED BY "&schema_pass"
   DEFAULT TABLESPACE users QUOTA UNLIMITED ON users;
@@ -30,5 +30,5 @@ END;
 /
 
 PROMPT
-PROMPT تم. أنشئ الآن مستخدماً للـ Workspace من: http://localhost/ords/apex_admin
+PROMPT Done. Now create a workspace user at: http://localhost/ords/apex_admin
 PROMPT (Manage Workspaces > Manage Developers and Users)

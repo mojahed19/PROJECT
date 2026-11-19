@@ -62,6 +62,7 @@ CREATE TABLE app_users (
   company_id      NUMBER         NOT NULL REFERENCES companies, -- الشركة الافتراضية
   user_role       VARCHAR2(20)   DEFAULT 'USER' NOT NULL
                   CHECK (user_role IN ('GM','ACCOUNTANT','HR','STORE','CASHIER','USER')),
+  password_hash   VARCHAR2(64),                                 -- SHA256(USER_NAME || ':' || password)
   is_active       CHAR(1)        DEFAULT 'Y' NOT NULL CHECK (is_active IN ('Y','N'))
 );
 

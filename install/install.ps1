@@ -11,7 +11,7 @@
    -DbUser      الـ Schema التي تُنشأ فيها الجداول (مطلوب)
    -Database    قاعدة البيانات (الافتراضي localhost:1521/orclpdb)
    -Workspace   اسم Workspace في APEX المرتبط بالـ Schema (لتنزيل التطبيق)
-   -AppId       رقم التطبيق عند التنزيل (الافتراضي 100)
+   -AppId       رقم التطبيق عند التنزيل (الافتراضي 115)
    -Reset       حذف جداول المشروع وإعادة إنشائها (يمسح البيانات!)
    -SkipDb      تخطي تنفيذ سكربتات قاعدة البيانات
    -SkipApp     تخطي تنزيل التطبيق
@@ -25,7 +25,7 @@ param(
   [Parameter(Mandatory = $true)][string]$DbUser,
   [string]$Database = 'localhost:1521/orclpdb',
   [string]$Workspace,
-  [int]$AppId      = 100,
+  [int]$AppId      = 115,
   [switch]$Reset,
   [switch]$SkipDb,
   [switch]$SkipApp
@@ -36,17 +36,17 @@ $ErrorActionPreference = 'Stop'
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
 # ---------------------------------------------------------------- 1) التنزيل من GitHub
-Step 'تنزيل / تحديث المشروع من GitHub'
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'Git غير مثبت' }
+Step 'Download / update project from GitHub'
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'Git is not installed' }
 if (Test-Path (Join-Path $Dir '.git')) {
   git -C $Dir pull --ff-only
 } else {
   git clone $RepoUrl $Dir
 }
-if ($LASTEXITCODE -ne 0) { throw 'فشل التنزيل من GitHub' }
+if ($LASTEXITCODE -ne 0) { throw 'Download from GitHub failed' }
 
 $sqlplus = Get-Command sqlplus -ErrorAction SilentlyContinue
-if (-not $sqlplus) { throw 'sqlplus غير موجود في PATH' }
+if (-not $sqlplus) { throw 'sqlplus not found in PATH' }
 
 # السكربتات فيها نصوص عربية: يجب أن يعمل sqlplus بترميز UTF-8
 $env:NLS_LANG = 'AMERICAN_AMERICA.AL32UTF8'
@@ -56,7 +56,7 @@ $OutputEncoding = [Text.Encoding]::UTF8
 $script:pass = $null
 function Get-Pass {
   if (-not $script:pass) {
-    $sec = Read-Host "كلمة مرور $DbUser" -AsSecureString
+    $sec = Read-Host "Password for $DbUser" -AsSecureString
     $script:pass = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
                      [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
   }
@@ -77,7 +77,7 @@ EXIT
     $stdin | & sqlplus -L -S /nolog
     $code = $LASTEXITCODE
   } finally { Pop-Location }
-  if ($code -ne 0) { throw "فشل تنفيذ $script (رمز الخطأ $code). راجع ملف السجل في مجلد install\logs" }
+  if ($code -ne 0) { throw "$script failed (code $code). See the log in install\logs" }
 }
 
 New-Item -ItemType Directory -Force (Join-Path $Dir 'install\logs') | Out-Null
@@ -85,29 +85,29 @@ New-Item -ItemType Directory -Force (Join-Path $Dir 'install\logs') | Out-Null
 # ---------------------------------------------------------------- 2) قاعدة البيانات
 if (-not $SkipDb) {
   if ($Reset) {
-    Step 'حذف جداول المشروع (Reset)'
-    $ok = Read-Host 'سيتم حذف كل جداول المشروع وبياناتها في هذه الـ Schema. اكتب YES للمتابعة'
-    if ($ok -ne 'YES') { throw 'أُلغي الحذف' }
+    Step 'Drop project tables (Reset)'
+    $ok = Read-Host 'All project tables and data in this schema will be deleted. Type YES to continue'
+    if ($ok -ne 'YES') { throw 'Reset cancelled' }
     Run-Sql 'install\drop_all.sql' @()
   }
-  Step 'تنفيذ سكربتات قاعدة البيانات'
+  Step 'Running database scripts'
   Run-Sql 'install\install_db.sql' @()
-  Write-Host 'تم إنشاء الجداول والبيانات الأولية' -ForegroundColor Green
+  Write-Host 'Tables and seed data created' -ForegroundColor Green
 }
 
 # ---------------------------------------------------------------- 3) تطبيق APEX
 if (-not $SkipApp) {
   $app = Join-Path $Dir 'apex\app\f100.sql'
   if (-not (Test-Path $app)) {
-    Write-Warning 'ملف التطبيق apex\app\f100.sql غير موجود بعد في المستودع، فتم تخطي تنزيل التطبيق.'
+    Write-Warning 'apex\app\f100.sql is not in the repository yet - app install skipped.'
   } elseif (-not $Workspace) {
-    Write-Warning 'لم يُحدد -Workspace، فتم تخطي تنزيل التطبيق.'
+    Write-Warning 'No -Workspace given - app install skipped.'
   } else {
-    Step "تنزيل تطبيق APEX في Workspace $Workspace برقم $AppId"
+    Step "Installing APEX app $AppId into workspace $Workspace"
     Run-Sql 'install\install_app.sql' @($Workspace, $AppId)
-    Write-Host "تم تنزيل التطبيق. افتحه من: http://localhost/ords/r/$($Workspace.ToLower())/" -ForegroundColor Green
+    Write-Host "App installed. Open: http://localhost/ords/r/$($Workspace.ToLower())/" -ForegroundColor Green
   }
 }
 
 $script:pass = $null
-Step 'انتهى'
+Step 'Finished'

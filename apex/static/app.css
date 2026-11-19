@@ -1,7 +1,84 @@
 /* =====================================================================
- * app.css - تنسيق جدول السطور JSON (يدعم RTL والوضع الداكن في Universal Theme)
- * Shared Components > User Interface > CSS File URLs : #APP_FILES#app#MIN#.css
+ * app.css - هوية المؤسسة التعاونية الوطنية + تنسيق جدول السطور JSON
+ * الألوان مأخوذة من الشعار: أخضر الأغصان، والحلقات (أسود / أحمر / أزرق)، وكحلي النص
  * ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+
+:root {
+  --ncc-green:       #1e8e3e;
+  --ncc-green-dark:  #146b2d;
+  --ncc-green-light: #e8f5ec;
+  --ncc-navy:        #2e2a83;
+  --ncc-red:         #d9232d;
+  --ncc-black:       #1d1d1b;
+  --ncc-paper:       #f6f8f6;
+
+  /* متغيرات Universal Theme */
+  --ut-palette-primary:            var(--ncc-green);
+  --ut-palette-primary-contrast:   #fff;
+  --ut-palette-primary-shade:      var(--ncc-green-light);
+  --ut-palette-primary-alt:        var(--ncc-green-dark);
+  --ut-header-background-color:    #fff;
+  --ut-header-text-color:          var(--ncc-navy);
+  --ut-body-background-color:      var(--ncc-paper);
+  --ut-link-text-color:            var(--ncc-navy);
+  --ut-focus-outline-color:        var(--ncc-green);
+  --a-button-hot-background-color: var(--ncc-green);
+  --a-button-hot-text-color:       #fff;
+  --a-button-hot-hover-background-color: var(--ncc-green-dark);
+}
+
+body, .t-Body, .t-Header, .t-Region, .t-Button, input, select, textarea {
+  font-family: 'Cairo', Tahoma, 'Segoe UI', Arial, sans-serif;
+}
+
+/* ---------- الشريط العلوي: أبيض مع خط الحلقات الثلاث (أسود / أحمر / أزرق) */
+.t-Header {
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(0,0,0,.06);
+  border-bottom: 4px solid transparent;
+  border-image: linear-gradient(to left, var(--ncc-black) 0 33.3%, var(--ncc-red) 33.3% 66.6%, var(--ncc-navy) 66.6% 100%) 1;
+}
+.t-Header-logo-link, .t-Header-logo-link span, .t-Header-logo { color: var(--ncc-navy) !important; font-weight: 700; }
+.t-Header-logo-link img { height: 40px; width: 40px; border-radius: 50%; background: #fff; }
+.t-Header .t-Button--header { color: var(--ncc-navy); }
+
+/* ---------- القائمة الجانبية: أخضر داكن */
+.t-Body-nav, .t-TreeNav, .t-TreeNav .a-TreeView-node--topLevel {
+  background-color: var(--ncc-green-dark) !important;
+}
+.t-TreeNav .a-TreeView-content, .t-TreeNav .a-TreeView-label, .t-TreeNav .fa { color: #fff !important; }
+.t-TreeNav .a-TreeView-node .a-TreeView-node .a-TreeView-content { background: rgba(0,0,0,.12); }
+.t-TreeNav .a-TreeView-content.is-current, .t-TreeNav .a-TreeView-content.is-current--top,
+.t-TreeNav .a-TreeView-content.is-hover { background: var(--ncc-green) !important; }
+.t-TreeNav .a-TreeView-content.is-current { box-shadow: inset -4px 0 0 var(--ncc-red); }
+
+/* ---------- المناطق والعناوين */
+.t-Region { border-radius: 10px; border-color: #dfe7e1; box-shadow: 0 1px 3px rgba(20,107,45,.06); }
+.t-Region-header { background: #fff; border-bottom: 2px solid var(--ncc-green-light); }
+.t-Region-title { color: var(--ncc-navy); font-weight: 700; }
+.t-Body-title { background: transparent; }
+.t-BreadcrumbRegion-titleText, .t-Body-title h1 { color: var(--ncc-navy); }
+
+/* ---------- الأزرار */
+.t-Button--hot, .a-Button--hot {
+  background-color: var(--ncc-green) !important; border-color: var(--ncc-green) !important; color: #fff !important;
+}
+.t-Button--hot:hover, .a-Button--hot:hover { background-color: var(--ncc-green-dark) !important; }
+.t-Button:not(.t-Button--hot):not(.t-Button--noUI) { border-color: #cfd8d2; }
+
+/* ---------- التقارير */
+.a-IRR-header { background: var(--ncc-green-light); }
+.a-IRR-header .a-IRR-headerLink, .a-IRR-header .a-IRR-headerLabel { color: var(--ncc-navy); font-weight: 600; }
+.a-IRR-table tr:hover td { background: #f3faf5; }
+
+/* ---------- صفحة الدخول */
+.t-PageBody--login {
+  background: radial-gradient(circle at 50% 20%, #fff 0, var(--ncc-green-light) 60%, #d4ebdb 100%) !important;
+}
+.t-PageBody--login .t-Login-region { border-radius: 14px; border-top: 6px solid var(--ncc-green); box-shadow: 0 10px 30px rgba(20,107,45,.15); }
+.t-PageBody--login .t-Login-logo { width: 120px; height: 120px; background-size: contain !important; border-radius: 50%; background-color: #fff !important; }
+.t-PageBody--login .t-Login-title { color: var(--ncc-navy); font-weight: 700; }
 .jl-table {
   width: 100%;
   border-collapse: collapse;
@@ -76,3 +153,24 @@
   .jl-table { font-size: 12px; }
   .jl-name  { display: block; margin: 0 6px 4px; }
 }
+
+/* ---------- جدول السطور بألوان الهوية */
+.jl-table th { background: var(--ncc-green-light); color: var(--ncc-navy); }
+.jl-table tfoot td { background: #f1f7f3; color: var(--ncc-green-dark); }
+.doc-status--POSTED, .doc-status--APPROVED { background: var(--ncc-green-light); color: var(--ncc-green-dark); }
+.doc-status--REVERSED { background: #fde8e9; color: var(--ncc-red); }
+
+/* ---------- نافذة البحث عن الصنف / الحساب */
+.jl-pop {
+  position: fixed; z-index: 1000; display: none;
+  min-width: 320px; max-width: 520px; max-height: 300px; overflow-y: auto;
+  background: #fff; border: 1px solid #cfd8d2; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15); padding: 4px 0; direction: rtl;
+}
+.jl-opt { padding: 6px 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jl-opt.is-active, .jl-opt:hover { background: var(--ncc-green-light, #e8f5ec); }
+.jl-opt-code { display: inline-block; min-width: 70px; direction: ltr; text-align: left; color: var(--ncc-navy, #2e2a83); font-weight: 600; }
+.jl-opt-info { color: #888; font-size: 11px; margin-inline-start: 8px; }
+.jl-none { color: #999; cursor: default; }
+
+.jl-hint { color: #6b7a70; font-size: 12px; margin-bottom: 6px; }

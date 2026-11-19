@@ -14,9 +14,15 @@ PROMPT ===== 02_seed.sql
 @db/02_seed.sql
 PROMPT ===== 03_phase2_tables.sql
 @db/03_phase2_tables.sql
+PROMPT ===== 04_purchases.sql
+@db/04_purchases.sql
+PROMPT ===== 05_sales.sql
+@db/05_sales.sql
+PROMPT ===== 06_branch_balances.sql
+@db/06_branch_balances.sql
 
-PROMPT ===== التحقق من الكائنات غير الصالحة
+PROMPT ===== Invalid objects check
 SELECT object_type, object_name FROM user_objects WHERE status = 'INVALID';
 
-PROMPT ===== تم
+PROMPT ===== Done
 SPOOL OFF

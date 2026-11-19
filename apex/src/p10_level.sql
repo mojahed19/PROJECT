@@ -1,0 +1,2 @@
+CASE WHEN :P10_PARENT_ID IS NULL THEN 1
+     ELSE (SELECT acc_level + 1 FROM accounts WHERE account_id = :P10_PARENT_ID) END

@@ -57,19 +57,26 @@
   }
 
   /* ---------------- LOV ---------------- */
+  // توحيد الحروف العربية للبحث: أ إ آ ← ا ، ة ← ه ، ى ← ي ، وحذف التشكيل والتطويل
+  function norm(s) {
+    return String(s == null ? '' : s).toLowerCase()
+      .replace(/[ً-ْـ]/g, '')
+      .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+      .replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 1632; })
+      .trim();
+  }
+
+  /* سجل القائمة: {id, code, name, bc: {باركود: رقم الوحدة}} - bc اختياري */
   JsonLines.prototype.setLov = function (name, list) {
-    var byCode = {}, byId = {};
-    list.forEach(function (r) { byCode[String(r.code).toUpperCase()] = r; byId[r.id] = r; });
-    this.lovs[name] = {list: list, byCode: byCode, byId: byId};
-    var dl = document.getElementById(this.id + '_dl_' + name);
-    if (!dl) {
-      dl = document.createElement('datalist');
-      dl.id = this.id + '_dl_' + name;
-      this.$root.appendChild(dl);
-    }
-    dl.innerHTML = list.map(function (r) {
-      return '<option value="' + esc(r.code) + '">' + esc(r.name) + '</option>';
-    }).join('');
+    var byCode = {}, byId = {}, byBc = {};
+    list.forEach(function (r) {
+      r._k = norm(r.code + ' ' + r.name);
+      if (r.bc0) { r.bc = r.bc || {}; r.bc[r.bc0] = r.bu; }   // باركود الصنف = الوحدة الأساسية
+      byCode[String(r.code).toUpperCase()] = r;
+      if (!(r.id in byId)) byId[r.id] = r;
+      if (r.bc) Object.keys(r.bc).forEach(function (b) { byBc[norm(b)] = {rec: r, unit: r.bc[b]}; });
+    });
+    this.lovs[name] = {list: list, byCode: byCode, byId: byId, byBc: byBc};
     // إعادة عرض الأسماء بعد تحميل القائمة
     for (var i = 0; i < this.rows.length; i++) this.refreshRow(i);
   };
@@ -79,17 +86,86 @@
     return l && id != null ? l.byId[id] || null : null;
   };
 
+  // البحث: الكود أو الباركود يبدأ بالنص، أو كل كلمات النص موجودة في الاسم/الكود
+  JsonLines.prototype.searchLov = function (lovName, text, max) {
+    var l = this.lovs[lovName];
+    if (!l) return [];
+    var q = norm(text);
+    if (!q) return l.list.slice(0, max || 30);
+    var words = q.split(/\s+/), out = [], seen = {};
+    function add(r, unit) { if (!seen[r.id]) { seen[r.id] = 1; out.push({rec: r, unit: unit}); } }
+    Object.keys(l.byBc).forEach(function (b) { if (b.indexOf(q) === 0) add(l.byBc[b].rec, l.byBc[b].unit); });
+    l.list.forEach(function (r) { if (norm(r.code).indexOf(q) === 0) add(r); });
+    l.list.forEach(function (r) {
+      if (words.every(function (w) { return r._k.indexOf(w) >= 0; })) add(r);
+    });
+    return out.slice(0, max || 30);
+  };
+
   JsonLines.prototype._resolveLov = function (col, text) {
     var l = this.lovs[col.lov];
     if (!l) return {ok: false};
     text = (text || '').trim();
     if (!text) return {ok: true, rec: null};
     var rec = l.byCode[text.toUpperCase()];
-    if (!rec) {   // بحث بالاسم إذا كان التطابق وحيداً
-      var m = l.list.filter(function (r) { return String(r.name).indexOf(text) >= 0; });
-      if (m.length === 1) rec = m[0];
+    if (rec) return {ok: true, rec: rec};
+    var bc = l.byBc[norm(text)];
+    if (bc) return {ok: true, rec: bc.rec, unit: bc.unit};
+    var m = this.searchLov(col.lov, text, 2);
+    if (m.length === 1) return {ok: true, rec: m[0].rec, unit: m[0].unit};
+    return {ok: false, many: m.length > 1};
+  };
+
+  /* ---------------- نافذة البحث المنسدلة ---------------- */
+  JsonLines.prototype._popShow = function (el) {
+    var self = this, c = this._col(el.dataset.col);
+    var res = this.searchLov(c.lov, el.value, 40);
+    if (!this.$pop) {
+      this.$pop = document.createElement('div');
+      this.$pop.className = 'jl-pop';
+      document.body.appendChild(this.$pop);
+      this.$pop.addEventListener('mousedown', function (e) {
+        var o = e.target.closest('.jl-opt');
+        if (!o) return;
+        e.preventDefault();
+        var r = self._popRes[+o.dataset.i];
+        self._pick(self._popEl, r.rec, r.unit);
+      });
     }
-    return rec ? {ok: true, rec: rec} : {ok: false};
+    this._popEl = el; this._popRes = res; this._popIdx = res.length ? 0 : -1;
+    if (!res.length) {
+      this.$pop.innerHTML = '<div class="jl-opt jl-none">لا توجد نتائج</div>';
+    } else {
+      this.$pop.innerHTML = res.map(function (r, i) {
+        return '<div class="jl-opt' + (i === 0 ? ' is-active' : '') + '" data-i="' + i + '">' +
+               '<span class="jl-opt-code">' + esc(r.rec.code) + '</span> ' + esc(r.rec.name) +
+               (r.rec.info ? ' <span class="jl-opt-info">' + esc(r.rec.info) + '</span>' : '') + '</div>';
+      }).join('');
+    }
+    var rc = el.getBoundingClientRect();
+    this.$pop.style.top = (rc.bottom + 2) + 'px';
+    this.$pop.style.right = (window.innerWidth - rc.right) + 'px';
+    this.$pop.style.display = 'block';
+  };
+
+  JsonLines.prototype._popHide = function () { if (this.$pop) this.$pop.style.display = 'none'; this._popEl = null; };
+  JsonLines.prototype._popOpen = function () { return this.$pop && this.$pop.style.display === 'block' && this._popEl; };
+
+  JsonLines.prototype._popMove = function (d) {
+    if (!this._popRes.length) return;
+    this._popIdx = (this._popIdx + d + this._popRes.length) % this._popRes.length;
+    var opts = this.$pop.querySelectorAll('.jl-opt');
+    opts.forEach(function (o, i) { o.classList.toggle('is-active', i === this._popIdx); }, this);
+    opts[this._popIdx].scrollIntoView({block: 'nearest'});
+  };
+
+  // اختيار سجل: تعبئة الخلية ثم الانتقال للخلية التالية
+  JsonLines.prototype._pick = function (el, rec, unit) {
+    this._popHide();
+    el.value = rec.code;
+    this._onInput(el, true, {rec: rec, unit: unit});
+    var next = this.$tbody.querySelector('tr[data-idx="' + el.closest('tr').dataset.idx + '"] [data-col="' + el.dataset.col + '"]');
+    if (next && window.EnterNav) window.EnterNav.next(next);
   };
 
   /* ---------------- البناء ---------------- */
@@ -125,9 +201,11 @@
     this.$tbody.addEventListener('change', function (e) { self._onInput(e.target, true); });
     this.$tbody.addEventListener('input', function (e) {
       if (e.target.dataset.type === 'number') self._onInput(e.target, false);
+      if (e.target.dataset.type === 'lov' && !e.target.readOnly) self._popShow(e.target);
     });
     this.$tbody.addEventListener('focusout', function (e) {
       var el = e.target;
+      if (el.dataset.type === 'lov') setTimeout(function () { if (self._popEl === el && document.activeElement !== el) self._popHide(); }, 150);
       if (el.dataset.type === 'number') {
         var r = self.rows[+el.closest('tr').dataset.idx];
         if (r) el.value = fmt(r[el.dataset.col], self._col(el.dataset.col).decimals || 0);
@@ -147,7 +225,7 @@
     switch (c.type) {
       case 'lov':
         var rec = this.lovRecord(c.lov, v);
-        return '<input type="text" class="jl-in jl-code"' + base + ' list="' + this.id + '_dl_' + c.lov + '"' +
+        return '<input type="text" class="jl-in jl-code"' + base + '' +
                ' value="' + esc(rec ? rec.code : (row[c.name + '$text'] || '')) + '" autocomplete="off">' +
                '<span class="jl-name">' + esc(rec ? rec.name : '') + '</span>';
       case 'number':
@@ -202,14 +280,16 @@
   };
 
   /* ---------------- الأحداث ---------------- */
-  JsonLines.prototype._onInput = function (el, committed) {
+  JsonLines.prototype._onInput = function (el, committed, forced) {
     var tr = el.closest('tr'); if (!tr) return;
     var idx = +tr.dataset.idx, row = this.rows[idx], c = this._col(el.dataset.col);
     if (!row || !c) return;
 
     if (c.type === 'lov') {
       if (!committed) return;
-      var res = this._resolveLov(c, el.value);
+      if (!forced && row[c.name] != null && row[c.name + '$text'] === el.value) return;   // لم يتغير
+      var res = forced ? {ok: true, rec: forced.rec, unit: forced.unit} : this._resolveLov(c, el.value);
+      row[c.name + '$unit'] = res.unit || null;   // وحدة الباركود إن وُجدت
       el.classList.toggle('jl-err', !res.ok);
       row[c.name] = res.ok && res.rec ? res.rec.id : null;
       row[c.name + '$text'] = el.value;
@@ -251,13 +331,30 @@
 
     if (e.ctrlKey && e.key === 'Delete') { e.preventDefault(); this.removeRow(idx, true); return; }
     if (e.ctrlKey && e.key === 'Insert') { e.preventDefault(); this.addRow(null, true, idx + 1); return; }
+
+    // نافذة البحث: الأسهم للتنقل، Enter للاختيار، Esc للإغلاق
+    var cc = this._col(el.dataset.col);
+    if (cc && cc.type === 'lov' && !el.readOnly) {
+      if (this._popOpen() && this._popEl === el) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); this._popMove(1); return; }
+        if (e.key === 'ArrowUp')   { e.preventDefault(); this._popMove(-1); return; }
+        if (e.key === 'Escape')    { e.preventDefault(); this._popHide(); return; }
+        if (e.key === 'Enter' && !e.shiftKey && this._popIdx >= 0 && el.value.trim()) {
+          e.preventDefault();
+          var pr = this._popRes[this._popIdx];
+          this._pick(el, pr.rec, pr.unit);
+          return;
+        }
+      } else if (e.key === 'ArrowDown' || e.key === 'F9') { e.preventDefault(); this._popShow(el); return; }
+    }
     if (e.key !== 'Enter' || e.shiftKey) return;
 
     // اعتماد قيمة الخلية قبل الانتقال
     var c = this._col(el.dataset.col);
     if (c && c.type === 'lov') {
       this._onInput(el, true);
-      if (el.classList.contains('jl-err')) { e.preventDefault(); el.select(); return; }   // كود خاطئ: لا ننتقل
+      if (el.classList.contains('jl-err')) { e.preventDefault(); this._popShow(el); return; }   // غير موجود أو أكثر من نتيجة: نعرض البحث
+      this._popHide();
     }
 
     // هل هذه آخر خلية قابلة للكتابة في آخر سطر؟
