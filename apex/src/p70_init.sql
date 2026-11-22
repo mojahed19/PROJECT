@@ -15,7 +15,7 @@ BEGIN
   JOIN   companies  c ON c.company_id = e.company_id
   JOIN   job_grades g ON g.grade_id   = e.grade_id
   WHERE  e.is_active = 'Y'
-  AND    (:G_USER_ROLE IN ('GM','HR') AND :G_COMPANY_ID = :G_PARENT_ID
+  AND    (:G_USER_ROLE IN ('ADMIN','ENTRY','REVIEWER','APPROVER') AND :G_COMPANY_ID = :G_PARENT_ID
           OR e.company_id = :G_COMPANY_ID);
 
   SELECT JSON_ARRAYAGG(JSON_OBJECT(

@@ -48,7 +48,7 @@ BEGIN
   BEGIN l_date := TO_DATE(l_date_s, 'DD/MM/YYYY'); EXCEPTION WHEN OTHERS THEN err('التاريخ غير صحيح'); END;
 
   SELECT COUNT(*) INTO l_cnt FROM dual
-  WHERE :G_USER_ROLE = 'GM' OR l_company = :G_COMPANY_ID
+  WHERE :G_USER_ROLE = 'ADMIN' OR l_company = :G_COMPANY_ID
      OR EXISTS (SELECT 1 FROM user_companies WHERE user_name = UPPER(:APP_USER) AND company_id = l_company);
   IF l_cnt = 0 THEN err('ليس لديك صلاحية على هذه الشركة'); END IF;
 

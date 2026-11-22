@@ -8,7 +8,7 @@ var adj = {
 
     adj.grid = new JsonLines({
       container: '#adj_lines',
-      readOnly : status !== 'DRAFT',
+      readOnly : !DocUtil.canEdit(status),
       columns  : [
         {name: 'EMPLOYEE_ID', label: 'الموظف', type: 'lov', lov: 'employees', required: true, width: '22em'},
         {name: 'COMPANY',     label: 'الشركة', type: 'display', noSubmit: true, width: '10em'},

@@ -113,10 +113,12 @@ section('user_interfaces', "wwv_flow_imp_shared.create_user_interface(\n" . args
 my @menu = (
   ['الرئيسية', 1, 'fa-home'],
   ['الحسابات', undef, 'fa-book', [
-     ['شجرة الحسابات', 10], ['قيد يومية', 30], ['قائمة القيود', 31], ['عكس القيود', 60],
+     ['بانتظار المراجعة والاعتماد', 35], ['شجرة الحسابات', 10], ['قيد يومية', 30], ['قائمة القيود', 31], ['عكس القيود', 60],
      ['ميزان المراجعة', 80], ['كشف حساب', 81], ['أنواع القيود', 20]]],
-  ['الصندوق والبنوك', undef, 'fa-money', [
-     ['إذن توريد', 40, undef, 'P40_VOUCHER_TYPE', 'R'], ['إذن صرف', 40, undef, 'P40_VOUCHER_TYPE', 'P'], ['قائمة الأذونات', 41]]],
+  ['الخزينة والبنوك', undef, 'fa-money', [
+     ['إذن توريد نقدي', 40, undef, 'P40_VOUCHER_TYPE', 'R'], ['إذن صرف نقدي', 40, undef, 'P40_VOUCHER_TYPE', 'P'], ['قائمة الأذونات النقدية', 41],
+     ['إذن توريد شيكات', 45, undef, 'P45_VOUCHER_TYPE', 'R'], ['إذن صرف شيكات', 45, undef, 'P45_VOUCHER_TYPE', 'P'], ['قائمة أذونات الشيكات', 46],
+     ['جدولة الشيكات', 47]]],
   ['المبيعات', undef, 'fa-truck', [
      ['فاتورة مبيعات', 50, undef, 'P50_INVOICE_TYPE', 'SALE'], ['مرتجع مبيعات', 50, undef, 'P50_INVOICE_TYPE', 'RETURN'],
      ['قائمة المبيعات', 51]]],
@@ -137,7 +139,7 @@ my @menu = (
   ['الموازنة', undef, 'fa-pie-chart', [
      ['الخطة التقديرية (الموازنة)', 120], ['الموازنة مقابل الفعلي', 121]]],
   ['الإعدادات', undef, 'fa-gear', [
-     ['بيانات الشركة', 199], ['المستخدمون', 206], ['السنوات المالية', 204], ['الحسابات الافتراضية', 208]]],
+     ['بيانات الشركة', 199], ['المستخدمون', 206], ['السنوات المالية', 204], ['الحسابات الافتراضية', 208], ['مقاسات طباعة الشيك', 240]]],
 );
 {
   my $b = "wwv_flow_imp_shared.create_list(\n" . args(id => wid($NAV_LIST), name => "'Navigation Menu'", list_status => "'PUBLIC'") . "\n);\n";
@@ -202,7 +204,7 @@ skel('10_plugin_settings.sql');
 # ---------------------------------------------------------------- الصلاحيات
 {
   my $b = '';
-  for my $s (['IS_GM', "'GM'"], ['IS_ACCOUNTANT', "'GM','ACCOUNTANT'"], ['IS_HR', "'GM','HR'"], ['IS_STORE', "'GM','STORE','ACCOUNTANT'"]) {
+  for my $s (['IS_GM', "'ADMIN'"], ['IS_ACCOUNTANT', "'ADMIN','ENTRY','REVIEWER','APPROVER'"], ['IS_HR', "'ADMIN','ENTRY','REVIEWER','APPROVER'"], ['IS_STORE', "'ADMIN','ENTRY','REVIEWER','APPROVER'"]) {
     $SEC{$s->[0]} = main::nid();
     $b .= "wwv_flow_imp_shared.create_security_scheme(\n" . args(
       id => wid($SEC{$s->[0]}), name => lit($s->[0]), scheme_type => "'NATIVE_FUNCTION_BODY'",
@@ -223,7 +225,7 @@ skel('10_plugin_settings.sql');
 
   my $init = src('app_init_user.sql');
   # أول مستخدم: إذا كان جدول المستخدمين فارغاً يدخل كمدير عام (تهيئة أولية)
-  $init =~ s/EXCEPTION\s*\n\s*WHEN NO_DATA_FOUND THEN\s*\n\s*raise_application_error\(-20000, '([^']*)'\);/EXCEPTION\n  WHEN NO_DATA_FOUND THEN\n    DECLARE l_cnt NUMBER;\n    BEGIN\n      SELECT COUNT(*) INTO l_cnt FROM app_users;\n      IF l_cnt = 0 THEN\n        :G_USER_ROLE := 'GM';\n        SELECT company_id INTO :G_PARENT_ID FROM companies WHERE is_parent = 'Y';\n        :G_COMPANY_ID := :G_PARENT_ID;\n      ELSE\n        raise_application_error(-20000, '$1');\n      END IF;\n    END;/;
+  $init =~ s/EXCEPTION\s*\n\s*WHEN NO_DATA_FOUND THEN\s*\n\s*raise_application_error\(-20000, '([^']*)'\);/EXCEPTION\n  WHEN NO_DATA_FOUND THEN\n    DECLARE l_cnt NUMBER;\n    BEGIN\n      SELECT COUNT(*) INTO l_cnt FROM app_users;\n      IF l_cnt = 0 THEN\n        :G_USER_ROLE := 'ADMIN';\n        SELECT company_id INTO :G_PARENT_ID FROM companies WHERE is_parent = 'Y';\n        :G_COMPANY_ID := :G_PARENT_ID;\n      ELSE\n        raise_application_error(-20000, '$1');\n      END IF;\n    END;/;
   my $p = '';
   my $seq = 0;
   # اسم الشركة وبياناتها: تُقرأ عند بدء كل جلسة (حتى صفحة الدخول) وتظهر في رأس الصفحات والتقارير

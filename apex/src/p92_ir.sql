@@ -12,5 +12,5 @@ JOIN items i ON i.item_id = b.item_id
 JOIN units ub ON ub.unit_id = i.base_unit_id
 JOIN warehouses w ON w.warehouse_id = b.warehouse_id
 JOIN companies c ON c.company_id = b.company_id
-WHERE (:G_USER_ROLE = 'GM' OR b.company_id = :G_COMPANY_ID)
+WHERE (:G_USER_ROLE = 'ADMIN' OR b.company_id = :G_COMPANY_ID)
 AND   b.qty_base <> 0

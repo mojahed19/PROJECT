@@ -6,27 +6,77 @@ use warnings;
 use utf8;
 
 our %LOV = (
-  companies  => "SELECT name_ar d, company_id r FROM companies c WHERE is_active = 'Y' AND (:G_USER_ROLE = 'GM' OR company_id = :G_COMPANY_ID OR EXISTS (SELECT 1 FROM user_companies u WHERE u.user_name = UPPER(:APP_USER) AND u.company_id = c.company_id)) ORDER BY is_parent DESC, company_code",
+  companies  => "SELECT name_ar d, company_id r FROM companies c WHERE is_active = 'Y' AND (:G_USER_ROLE = 'ADMIN' OR company_id = :G_COMPANY_ID OR EXISTS (SELECT 1 FROM user_companies u WHERE u.user_name = UPPER(:APP_USER) AND u.company_id = c.company_id)) ORDER BY is_parent DESC, company_code",
   all_companies => "SELECT name_ar d, company_id r FROM companies WHERE is_active = 'Y' ORDER BY is_parent DESC, company_code",
   subs       => "SELECT name_ar d, company_id r FROM companies WHERE is_parent = 'N' AND is_active = 'Y' ORDER BY company_code",
   currencies => "SELECT currency_code || ' - ' || name_ar d, currency_code r FROM currencies WHERE is_active = 'Y' ORDER BY is_base DESC, currency_code",
-  jt_manual  => "SELECT name_ar d, jt_code r FROM journal_types WHERE manual_allowed = 'Y' AND is_active = 'Y' ORDER BY sort_order",
+  jt_manual  => "SELECT name_ar d, jt_code r FROM journal_types WHERE (manual_allowed = 'Y' AND is_active = 'Y') OR jt_code = :P30_JT_CODE ORDER BY sort_order",
   periods    => "SELECT TO_CHAR(ADD_MONTHS(TRUNC(SYSDATE,'MM'), 1-LEVEL),'YYYY-MM') d, TO_CHAR(ADD_MONTHS(TRUNC(SYSDATE,'MM'), 1-LEVEL),'YYYYMM') r FROM dual CONNECT BY LEVEL <= 13",
   years      => "SELECT fy_year d, fy_year r FROM fiscal_years ORDER BY 1 DESC",
-  warehouses => "SELECT c.name_ar || ' / ' || w.name_ar d, w.warehouse_id r FROM warehouses w JOIN companies c ON c.company_id = w.company_id WHERE w.is_active = 'Y' AND (:G_USER_ROLE = 'GM' OR w.company_id = :G_COMPANY_ID) ORDER BY c.company_code, w.name_ar",
+  warehouses => "SELECT c.name_ar || ' / ' || w.name_ar d, w.warehouse_id r FROM warehouses w JOIN companies c ON c.company_id = w.company_id WHERE w.is_active = 'Y' AND (:G_USER_ROLE = 'ADMIN' OR w.company_id = :G_COMPANY_ID) ORDER BY c.company_code, w.name_ar",
   accounts4  => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE is_postable = 'Y' AND is_active = 'Y' ORDER BY account_code",
   accounts_all => "SELECT LPAD(' ', (acc_level - 1) * 3) || account_code || ' - ' || name_ar d, account_id r FROM accounts ORDER BY account_code",
   cash       => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE cash_bank IN ('C','B') AND is_active = 'Y' ORDER BY account_code",
   yn         => "SELECT 'نعم' d, 'Y' r FROM dual UNION ALL SELECT 'لا', 'N' FROM dual",
+  wf_status  => "SELECT 'مسودة' d, 'DRAFT' r FROM dual UNION ALL SELECT 'معاد للمدخل', 'RETURNED' FROM dual UNION ALL SELECT 'مُراجَع', 'REVIEWED' FROM dual UNION ALL SELECT 'معتمد', 'APPROVED' FROM dual UNION ALL SELECT 'مرحّل', 'POSTED' FROM dual UNION ALL SELECT 'معكوس', 'REVERSED' FROM dual",
+  accounts_party => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE is_postable = 'Y' AND is_active = 'Y' AND cash_bank = 'N' ORDER BY account_code",
 );
 
-my $SAVE_KEYS = "if (apex.item('%s').getValue() && apex.item('%s').getValue() !== '%s') { %s.forEach(function (n) { apex.item(n).disable(); }); }";
+# الحقول تُقفل إذا لم يكن للمستخدم حق التعديل (المدخل/مدير النظام في حالة مسودة أو معاد للمدخل)
+my $SAVE_KEYS = "if (apex.item('%1\$s').getValue() && !DocUtil.canEdit(apex.item('%1\$s').getValue())) { %4\$s.forEach(function (n) { apex.item(n).disable(); }); }";
 
 sub doc_status_html {
-  my ($no_item, $status_item, $no_label) = @_;
+  my ($no_item, $status_item, $no_label, $pfx) = @_;
+  my $extra = $pfx ? "<span class=\"doc-wf\">&${pfx}_WF_INFO.</span><span class=\"doc-note\">&${pfx}_RETURN_NOTE.</span>" : '';
   return "<div class=\"doc-meta\" style=\"margin:4px 0 10px\">$no_label: <b id=\"doc_no\">&$no_item.</b> &nbsp;&nbsp; الحالة: "
-       . "<span class=\"doc-status doc-status--&$status_item.\">&$status_item.</span></div>";
+       . "<span class=\"doc-status doc-status--&$status_item.\">&$status_item.</span>$extra</div>";
 }
+
+# عبارة PL/SQL تملأ معلومات المراجعة/الاعتماد وسبب الإعادة عند تحميل المستند (r = سجل المستند)
+sub wf_load {
+  my $p = shift;
+  return ":${p}_RETURN_NOTE := CASE WHEN r.status = 'RETURNED' THEN r.return_note END;\n"
+       . ":${p}_WF_INFO := TRIM(CASE WHEN r.reviewed_by IS NOT NULL THEN 'راجعه ' || r.reviewed_by || ' ' || TO_CHAR(r.reviewed_on, 'DD/MM/YYYY HH24:MI') END"
+       . " || CASE WHEN r.approved_by IS NOT NULL THEN ' - اعتمده ' || r.approved_by || ' ' || TO_CHAR(r.approved_on, 'DD/MM/YYYY HH24:MI') END);";
+}
+
+# أزرار وعملية دورة المستند (مراجعة / اعتماد / إعادة / ترحيل)
+#   page, region, table, idcol, id (عنصر المعرّف), status (عنصر الحالة), doc, post (كود الترحيل أو undef)
+sub wf_setup {
+  my %a = @_;
+  my $p = "P$a{page}";
+  item(name => "${p}_WF_NOTE",     region => $a{region}, type => 'hidden', seq => 97);
+  item(name => "${p}_WF_INFO",     region => $a{region}, type => 'hidden', seq => 98);
+  item(name => "${p}_RETURN_NOTE", region => $a{region}, type => 'hidden', seq => 99);
+  my ($id, $st) = (":$a{id} IS NOT NULL", ":$a{status}");
+  my $r = sub { "$id AND :G_USER_ROLE IN ('ADMIN','$_[0]')" };
+  button(name => 'WF_REVIEW',    region => $a{region}, label => 'مراجعة', js => "DocUtil.wf('REVIEW');", hot => 1, seq => 61,
+         cond => $r->('REVIEWER') . " AND $st = 'DRAFT'");
+  button(name => 'WF_UNREVIEW',  region => $a{region}, label => 'إلغاء المراجعة', js => "DocUtil.wf('UNREVIEW');", seq => 62,
+         cond => $r->('REVIEWER') . " AND $st = 'REVIEWED'");
+  button(name => 'WF_APPROVE',   region => $a{region}, label => 'اعتماد', js => "DocUtil.wf('APPROVE');", hot => 1, seq => 63,
+         cond => $r->('APPROVER') . " AND $st = 'REVIEWED'");
+  button(name => 'WF_UNAPPROVE', region => $a{region}, label => 'إلغاء الاعتماد', js => "DocUtil.wf('UNAPPROVE');", seq => 64,
+         cond => $r->('APPROVER') . " AND $st = 'APPROVED'");
+  button(name => 'WF_RETURN',    region => $a{region}, label => 'إعادة للمدخل', js => "DocUtil.wf('RETURN');", seq => 65,
+         cond => "$id AND ((:G_USER_ROLE IN ('ADMIN','REVIEWER') AND $st IN ('DRAFT','REVIEWED')) OR (:G_USER_ROLE IN ('ADMIN','APPROVER') AND $st IN ('REVIEWED','APPROVED')))");
+  button(name => 'WF_POST',      region => $a{region}, label => 'ترحيل', js => "DocUtil.wf('POST');", hot => 1, seq => 66,
+         cond => $r->('APPROVER') . " AND $st = 'APPROVED'") if $a{post};
+  my $code = src('wf_action.sql');
+  my %rep = (__ITEM__ => $a{id}, __NOTE__ => "${p}_WF_NOTE", __TABLE__ => $a{table}, __IDCOL__ => $a{idcol},
+             __DOC__ => $a{doc}, __CANPOST__ => ($a{post} ? 'Y' : 'N'), __POST__ => ($a{post} // 'NULL;'));
+  for my $k (keys %rep) { my $v = $rep{$k}; $code =~ s/\Q$k\E/$v/g; }
+  process(name => 'WORKFLOW', seq => 50, when_req => 'REVIEW,UNREVIEW,APPROVE,UNAPPROVE,RETURN,POST', code => $code);
+}
+
+# مصدر تحميل مستند مع معلومات دورة المراجعة
+sub src_wf { my ($f, $p) = @_; my $c = src($f); my $w = wf_load($p); $c =~ s/__WF__/$w/; return $c }
+
+# شرط إظهار زر الحفظ: المدخل أو مدير النظام والمستند جديد أو مسودة أو معاد للمدخل
+# مصدر يحتوي دالة التفقيط
+sub src_t { my $c = src(shift); my $t = src('tafqeet.sql'); $c =~ s/__TAFQEET__/$t/; return $c }
+
+sub can_save { my $st = shift; return ":G_USER_ROLE IN ('ADMIN','ENTRY') AND (:$st IS NULL OR :$st IN ('DRAFT','RETURNED'))" }
 
 sub date_default { my $i = shift; return "IF :$i IS NULL THEN :$i := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;" }
 sub base_cur_default {
@@ -41,7 +91,7 @@ page(id => 30, name => 'قيد يومية', alias => 'JOURNAL', auth => 'IS_ACCO
      js => src('p30.js'),
      onload => "jv.init();\n" . sprintf($SAVE_KEYS, 'P30_STATUS', 'P30_STATUS', 'DRAFT',
        "['P30_COMPANY_ID','P30_JT_CODE','P30_JOURNAL_DATE','P30_CURRENCY_CODE','P30_EXCHANGE_RATE','P30_REF_NO','P30_DESCRIPTION']", ) );
-region(name => 'head', title => 'رأس القيد', type => 'static', html => doc_status_html('P30_JOURNAL_NO', 'P30_STATUS', 'رقم القيد'));
+region(name => 'head', title => 'رأس القيد', type => 'static', html => doc_status_html('P30_JOURNAL_NO', 'P30_STATUS', 'رقم القيد', 'P30'));
 item(name => 'P30_JOURNAL_ID', region => 'head', type => 'hidden', seq => 1);
 item(name => 'P30_JOURNAL_NO', region => 'head', type => 'hidden', seq => 2);
 item(name => 'P30_STATUS',     region => 'head', type => 'hidden', seq => 3);
@@ -55,15 +105,20 @@ item(name => 'P30_REF_NO',     region => 'head', label => 'المرجع', seq =>
 item(name => 'P30_DESCRIPTION', region => 'head', label => 'البيان', seq => 70, max => 500);
 region(name => 'lines', title => 'سطور القيد', type => 'static', seq => 20,
        html => "<div id=\"jv_lines\"></div>\n<div style=\"margin-top:8px\">الفرق: <span id=\"jv_diff\" class=\"jv-diff ok\">0.00</span></div>");
-my $draft = ":P30_STATUS IS NULL OR :P30_STATUS = 'DRAFT'";
-button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ مسودة (Ctrl+S)', js => "jv.save('DRAFT');", seq => 10, cond => $draft);
-button(name => 'POST', region => 'lines', label => 'حفظ وترحيل', js => "jv.save('POST');", hot => 1, seq => 20, cond => $draft);
+my $draft = can_save('P30_STATUS') . " AND NVL(:P30_SOURCE_TYPE, 'MANUAL') = 'MANUAL'";
+button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ (Ctrl+S)', js => "jv.save('DRAFT');", hot => 1, seq => 10, cond => $draft);
 button(name => 'DELETE_DOC', region => 'lines', label => 'حذف', js => 'jv.remove();', position => 'PREVIOUS', seq => 30,
-       cond => ":P30_JOURNAL_ID IS NOT NULL AND :P30_STATUS = 'DRAFT'");
+       cond => ":P30_JOURNAL_ID IS NOT NULL AND $draft");
 button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30::', position => 'PREVIOUS', seq => 40);
+button(name => 'PRINT', region => 'lines', label => 'طباعة', position => 'PREVIOUS', seq => 45, if_not_null => 'P30_JOURNAL_ID',
+       js => "window.open(apex.util.makeApplicationUrl({pageId: 32, itemNames: ['P32_JOURNAL_ID'], itemValues: [apex.item('P30_JOURNAL_ID').getValue()]}), '_blank');");
 button(name => 'REVERSE', region => 'lines', label => 'عكس القيد', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P30_JOURNAL_ID.',
-       position => 'PREVIOUS', seq => 50, cond => ":P30_STATUS = 'POSTED'");
-process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, code => src('p30_load.sql'), cond => ':P30_JOURNAL_ID IS NOT NULL');
+       position => 'PREVIOUS', seq => 50, cond => ":P30_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','ENTRY')");
+wf_setup(page => 30, region => 'lines', table => 'journals', idcol => 'journal_id', id => 'P30_JOURNAL_ID',
+         status => 'P30_STATUS', doc => 'JOURNAL', post => <<'PLSQL');
+UPDATE journals SET posted_by = :APP_USER, posted_on = SYSDATE WHERE journal_id = l_id;
+PLSQL
+process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, code => src_wf('p30_load.sql', 'P30'), cond => ':P30_JOURNAL_ID IS NOT NULL');
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, cond => ':P30_JOURNAL_ID IS NULL', code => join("\n",
   'IF :P30_COMPANY_ID IS NULL THEN :P30_COMPANY_ID := :G_COMPANY_ID; END IF;',
   "IF :P30_JT_CODE IS NULL THEN :P30_JT_CODE := 'JV'; END IF;", "IF :P30_STATUS IS NULL THEN :P30_STATUS := 'DRAFT'; END IF;",
@@ -71,7 +126,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, cond => ':P30_J
 ajax('INIT_DATA', src('p30_init.sql'));
 ajax('SAVE_DOC',  src('p30_save.sql'));
 ajax('DELETE_DOC', src('p30_delete.sql'));
-branch_self();
+branch_self('P30_JOURNAL_ID');
 end_page();
 
 page(id => 31, name => 'قائمة القيود', alias => 'JOURNALS', auth => 'IS_ACCOUNTANT');
@@ -86,56 +141,206 @@ branch_self();
 end_page();
 
 # =====================================================================
-# 40 إذن توريد / إذن صرف + 41 القائمة
+# 40 إذن توريد / صرف نقدي (الحساب المقابل والمبلغ والبيان في الرأس) + 41 القائمة
 # =====================================================================
-page(id => 40, name => 'إذن توريد / صرف', alias => 'VOUCHER', title => '&P40_TITLE.', auth => 'IS_ACCOUNTANT',
-     js => src('p40.js'),
-     onload => "vch.init();\n" . sprintf($SAVE_KEYS, 'P40_STATUS', 'P40_STATUS', 'DRAFT',
-       "['P40_COMPANY_ID','P40_VOUCHER_DATE','P40_CASH_ACCOUNT_ID','P40_CURRENCY_CODE','P40_EXCHANGE_RATE','P40_PAY_METHOD','P40_CHEQUE_NO','P40_CHEQUE_DATE','P40_BANK_NAME','P40_PARTY_NAME','P40_DESCRIPTION']"));
-region(name => 'head', title => '&P40_TITLE.', type => 'static', html => doc_status_html('P40_VOUCHER_NO', 'P40_STATUS', 'رقم الإذن'));
-item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1]) for (['P40_VOUCHER_ID',1],['P40_VOUCHER_TYPE',2],['P40_VOUCHER_NO',3],['P40_STATUS',4],['P40_JOURNAL_ID',5],['P40_TITLE',6]);
-item(name => 'P40_COMPANY_ID', region => 'head', type => 'select', label => 'الشركة', lov => $LOV{companies}, seq => 10, required => 1);
-item(name => 'P40_VOUCHER_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, same_line => 1, required => 1);
-item(name => 'P40_CASH_ACCOUNT_ID', region => 'head', type => 'select', label => 'الصندوق / البنك', lov => $LOV{cash}, null => 1, seq => 30, same_line => 1, required => 1);
-item(name => 'P40_CURRENCY_CODE', region => 'head', type => 'select', label => 'العملة', lov => $LOV{currencies}, seq => 40);
-item(name => 'P40_EXCHANGE_RATE', region => 'head', label => 'سعر الصرف', seq => 50, same_line => 1);
-item(name => 'P40_PAY_METHOD', region => 'head', type => 'select', label => 'طريقة الدفع', seq => 60, same_line => 1,
-     lov => "SELECT 'نقدي' d, 'CASH' r FROM dual UNION ALL SELECT 'شيك', 'CHEQUE' FROM dual UNION ALL SELECT 'تحويل بنكي', 'TRANSFER' FROM dual");
-item(name => 'P40_CHEQUE_NO', region => 'head', label => 'رقم الشيك', seq => 70);
-item(name => 'P40_CHEQUE_DATE', region => 'head', type => 'date', label => 'تاريخ الشيك', seq => 80, same_line => 1);
-item(name => 'P40_BANK_NAME', region => 'head', label => 'البنك', seq => 90, same_line => 1);
-item(name => 'P40_PARTY_NAME', region => 'head', label => 'الاسم (استلمنا من / صرفنا إلى)', seq => 100);
-item(name => 'P40_DESCRIPTION', region => 'head', label => 'البيان', seq => 110, same_line => 1, max => 500);
-region(name => 'lines', title => 'الحسابات المقابلة', type => 'static', seq => 20,
-       html => "<div id=\"v_lines\"></div>\n<div style=\"margin-top:8px\"><b>إجمالي الإذن:</b> <span id=\"v_words\"></span></div>");
-$draft = ":P40_STATUS IS NULL OR :P40_STATUS = 'DRAFT'";
-button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ مسودة (Ctrl+S)', js => "vch.save('DRAFT');", seq => 10, cond => $draft);
-button(name => 'POST', region => 'lines', label => 'حفظ وترحيل', js => "vch.save('POST');", hot => 1, seq => 20, cond => $draft);
-button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:40:&SESSION.::&DEBUG.:40:P40_VOUCHER_TYPE:&P40_VOUCHER_TYPE.', position => 'PREVIOUS', seq => 30);
-button(name => 'SHOW_JV', region => 'lines', label => 'عرض القيد', url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:&P40_JOURNAL_ID.', position => 'PREVIOUS', seq => 40, cond => ":P40_STATUS IN ('POSTED','REVERSED')");
-button(name => 'REVERSE', region => 'lines', label => 'عكس', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P40_JOURNAL_ID.', position => 'PREVIOUS', seq => 50, cond => ":P40_STATUS = 'POSTED'");
-process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, code => src('p40_load.sql'), cond => ':P40_VOUCHER_ID IS NOT NULL');
+# رقم المستند المتوقع (يظهر عند الضغط على "جديد") - كله أرقام: النوع + السنة + 5 خانات
+sub next_no_sql {
+  my ($id_item, $no_item, $code_expr, $date_item) = @_;
+  my $y = "EXTRACT(YEAR FROM NVL(TO_DATE(:$date_item, 'DD/MM/YYYY'), SYSDATE))";
+  return "IF :$id_item IS NULL THEN\n"
+       . "  SELECT $code_expr || $y || LPAD(NVL(MAX(last_no), 0) + 1, 5, '0') INTO :$no_item FROM doc_sequences\n"
+       . "  WHERE company_id = NVL(:G_COMPANY_ID, :G_PARENT_ID) AND doc_type = $code_expr AND fy_year = $y;\n"
+       . "END IF;";
+}
+my $print_js = sub {
+  my ($page, $item, $src) = @_;
+  return "window.open(apex.util.makeApplicationUrl({pageId: $page, itemNames: ['$item'], itemValues: [apex.item('$src').getValue()]}), '_blank');";
+};
+
+page(id => 40, name => 'إذن نقدي', alias => 'VOUCHER', title => '&P40_TITLE.', auth => 'IS_ACCOUNTANT',
+     onload => "EnterNav.first('#main');\n" . sprintf($SAVE_KEYS, 'P40_STATUS', '', '',
+       "['P40_VOUCHER_DATE','P40_CASH_ACCOUNT_ID','P40_COUNTER_ACCOUNT_ID','P40_AMOUNT','P40_PARTY_NAME','P40_DESCRIPTION']"));
+region(name => 'head', title => '&P40_TITLE.', type => 'static', html => doc_status_html('P40_VOUCHER_NO', 'P40_STATUS', 'رقم الإذن', 'P40'));
+item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1])
+  for (['P40_VOUCHER_ID',1],['P40_VOUCHER_TYPE',2],['P40_VOUCHER_NO',3],['P40_STATUS',4],['P40_JOURNAL_ID',5],['P40_TITLE',6]);
+item(name => 'P40_VOUCHER_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, required => 1);
+item(name => 'P40_CASH_ACCOUNT_ID', region => 'head', type => 'select', label => 'الخزينة', lov => $LOV{cash}, null => 1, seq => 30, same_line => 1, required => 1);
+item(name => 'P40_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label => 'الحساب المقابل', lov => $LOV{accounts4}, seq => 40, required => 1);
+item(name => 'P40_AMOUNT', region => 'head', label => 'المبلغ', seq => 50, same_line => 1, required => 1);
+item(name => 'P40_PARTY_NAME', region => 'head', label => '&P40_PARTY_LABEL.', seq => 60);
+item(name => 'P40_PARTY_LABEL', region => 'head', type => 'hidden', seq => 7);
+item(name => 'P40_DESCRIPTION', region => 'head', label => 'البيان', seq => 70, same_line => 1, max => 500, required => 1);
+button(name => 'SAVE', region => 'head', label => 'حفظ', hot => 1, seq => 10, cond => can_save('P40_STATUS'));
+button(name => 'NEW', region => 'head', label => 'جديد', url => 'f?p=&APP_ID.:40:&SESSION.::&DEBUG.:40:P40_VOUCHER_TYPE:&P40_VOUCHER_TYPE.', position => 'PREVIOUS', seq => 30);
+button(name => 'PRINT', region => 'head', label => 'طباعة', position => 'PREVIOUS', seq => 35, if_not_null => 'P40_VOUCHER_ID',
+       js => $print_js->(42, 'P42_VOUCHER_ID', 'P40_VOUCHER_ID'));
+button(name => 'SHOW_JV', region => 'head', label => 'عرض القيد', url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:&P40_JOURNAL_ID.', position => 'PREVIOUS', seq => 40, cond => ":P40_STATUS IN ('POSTED','REVERSED')");
+button(name => 'REVERSE', region => 'head', label => 'عكس', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P40_JOURNAL_ID.', position => 'PREVIOUS', seq => 50, cond => ":P40_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','ENTRY')");
+wf_setup(page => 40, region => 'head', table => 'vouchers', idcol => 'voucher_id', id => 'P40_VOUCHER_ID',
+         status => 'P40_STATUS', doc => 'VOUCHER', post => src('voucher_post.sql'));
+process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, code => src_wf('p40_load.sql', 'P40'), cond => ':P40_VOUCHER_ID IS NOT NULL');
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\n",
-  "IF :P40_VOUCHER_TYPE IS NULL THEN :P40_VOUCHER_TYPE := 'R'; END IF;",
+  "IF :P40_VOUCHER_TYPE IS NULL OR :P40_VOUCHER_TYPE NOT IN ('R','P') THEN :P40_VOUCHER_TYPE := 'R'; END IF;",
   "IF :P40_VOUCHER_ID IS NULL THEN",
-  '  IF :P40_COMPANY_ID IS NULL THEN :P40_COMPANY_ID := :G_COMPANY_ID; END IF;',
-  "  IF :P40_STATUS IS NULL THEN :P40_STATUS := 'DRAFT'; END IF;",
-  "  IF :P40_PAY_METHOD IS NULL THEN :P40_PAY_METHOD := 'CASH'; END IF;",
-  '  ' . date_default('P40_VOUCHER_DATE'), '  ' . base_cur_default('P40_CURRENCY_CODE', 'P40_EXCHANGE_RATE'),
+  "  :P40_STATUS := NULL;",
+  '  ' . date_default('P40_VOUCHER_DATE'),
   'END IF;',
-  ":P40_TITLE := CASE :P40_VOUCHER_TYPE WHEN 'R' THEN 'إذن توريد' ELSE 'إذن صرف' END;"));
-ajax('INIT_DATA', src('p40_init.sql'));
-ajax('SAVE_DOC',  src('p40_save.sql'));
-ajax('NEXT_NO', src('next_no.sql'));
-branch_self();
+  next_no_sql('P40_VOUCHER_ID', 'P40_VOUCHER_NO', "CASE :P40_VOUCHER_TYPE WHEN 'R' THEN '11' ELSE '12' END", 'P40_VOUCHER_DATE'),
+  ":P40_TITLE := CASE :P40_VOUCHER_TYPE WHEN 'R' THEN 'إذن توريد نقدي' ELSE 'إذن صرف نقدي' END;",
+  ":P40_PARTY_LABEL := CASE :P40_VOUCHER_TYPE WHEN 'R' THEN 'استلمنا من' ELSE 'صرفنا إلى' END;"));
+process(name => 'SAVE_DOC', seq => 10, button => 'SAVE', code => src('p40_save.sql'));
+branch_self('P40_VOUCHER_ID', 'P40_VOUCHER_TYPE');
 end_page();
 
-page(id => 41, name => 'قائمة الأذونات', alias => 'VOUCHERS', auth => 'IS_ACCOUNTANT');
+page(id => 41, name => 'قائمة الأذونات النقدية', alias => 'VOUCHERS', auth => 'IS_ACCOUNTANT');
 region(name => 'f', title => 'بحث', type => 'static', html => '', seq => 5);
 item(name => 'P41_TYPE', region => 'f', type => 'select', label => 'النوع', null => 'الكل', submit => 1,
-     lov => "SELECT 'توريد' d, 'R' r FROM dual UNION ALL SELECT 'صرف', 'P' FROM dual");
-region(name => 'ir', title => 'أذونات التوريد والصرف', type => 'ir', sql => src('p41_ir.sql'), seq => 10,
-       links => { 'الرقم' => 'f?p=&APP_ID.:40:&SESSION.::&DEBUG.:40:P40_VOUCHER_ID:#VOUCHER_ID#' });
+     lov => "SELECT 'توريد نقدي' d, 'R' r FROM dual UNION ALL SELECT 'صرف نقدي', 'P' FROM dual");
+item(name => 'P41_STATUS', region => 'f', type => 'select', label => 'الحالة', null => 'الكل', submit => 1, seq => 20, same_line => 1, lov => $LOV{wf_status});
+region(name => 'ir', title => 'الأذونات النقدية', type => 'ir', sql => src('p41_ir.sql'), seq => 10,
+       links => { 'الرقم' => 'f?p=&APP_ID.:40:&SESSION.::&DEBUG.:40:P40_VOUCHER_ID,P40_VOUCHER_TYPE:#VOUCHER_ID#,#VOUCHER_TYPE#' });
+end_page();
+
+# =====================================================================
+# 45 إذن توريد / صرف شيكات (عدة شيكات بتواريخ استحقاق) + 46 القائمة
+# =====================================================================
+page(id => 45, name => 'إذن شيكات', alias => 'CHEQUE-VOUCHER', title => '&P45_TITLE.', auth => 'IS_ACCOUNTANT',
+     js => src('p45.js'),
+     onload => "chq.init();\n" . sprintf($SAVE_KEYS, 'P45_STATUS', '', '',
+       "['P45_VOUCHER_DATE','P45_COUNTER_ACCOUNT_ID','P45_PARTY_NAME','P45_DESCRIPTION']"));
+region(name => 'head', title => '&P45_TITLE.', type => 'static', html => doc_status_html('P45_VOUCHER_NO', 'P45_STATUS', 'رقم الإذن', 'P45'));
+item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1])
+  for (['P45_VOUCHER_ID',1],['P45_VOUCHER_TYPE',2],['P45_VOUCHER_NO',3],['P45_STATUS',4],['P45_JOURNAL_ID',5],['P45_TITLE',6],['P45_TOTAL',7]);
+item(name => 'P45_VOUCHER_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, required => 1);
+item(name => 'P45_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label => '&P45_ACC_LABEL.', lov => $LOV{accounts_party}, seq => 30, same_line => 1, required => 1);
+item(name => 'P45_ACC_LABEL', region => 'head', type => 'hidden', seq => 8);
+item(name => 'P45_PARTY_LABEL', region => 'head', type => 'hidden', seq => 9);
+item(name => 'P45_PARTY_NAME', region => 'head', label => '&P45_PARTY_LABEL.', seq => 40);
+item(name => 'P45_DESCRIPTION', region => 'head', label => 'البيان', seq => 50, same_line => 1, max => 500, required => 1);
+region(name => 'lines', title => 'الشيكات', type => 'static', seq => 20,
+       html => "<div id=\"chq_lines\"></div>\n<div style=\"margin-top:8px\"><b>إجمالي الشيكات:</b> <span id=\"chq_total\">0.00</span></div>");
+button(name => 'SAVE', region => 'lines', label => 'حفظ (Ctrl+S)', js => 'chq.save();', hot => 1, seq => 10, cond => can_save('P45_STATUS'));
+button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:45:&SESSION.::&DEBUG.:45:P45_VOUCHER_TYPE:&P45_VOUCHER_TYPE.', position => 'PREVIOUS', seq => 30);
+button(name => 'PRINT', region => 'lines', label => 'طباعة الإذن', position => 'PREVIOUS', seq => 35, if_not_null => 'P45_VOUCHER_ID',
+       js => $print_js->(42, 'P42_VOUCHER_ID', 'P45_VOUCHER_ID'));
+button(name => 'SHOW_JV', region => 'lines', label => 'عرض القيد', url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:&P45_JOURNAL_ID.', position => 'PREVIOUS', seq => 40, cond => ":P45_STATUS IN ('POSTED','REVERSED')");
+button(name => 'SCHEDULE', region => 'lines', label => 'جدولة الشيكات', url => 'f?p=&APP_ID.:47:&SESSION.::&DEBUG.:47::', position => 'PREVIOUS', seq => 45);
+wf_setup(page => 45, region => 'lines', table => 'vouchers', idcol => 'voucher_id', id => 'P45_VOUCHER_ID',
+         status => 'P45_STATUS', doc => 'VOUCHER', post => src('voucher_post.sql'));
+# روابط طباعة الشيكات الصادرة بعد الاعتماد (كل شيك بمقاس الشيك البنكي)
+region(name => 'prints', title => 'طباعة الشيكات', type => 'plsql', seq => 30,
+       cond => ":P45_VOUCHER_TYPE = 'P' AND :P45_STATUS IN ('APPROVED','POSTED')", plsql => <<'PLSQL');
+BEGIN
+  FOR c IN (SELECT cheque_id, cheque_no, amount, TO_CHAR(due_date, 'DD/MM/YYYY') due FROM cheques
+            WHERE voucher_id = :P45_VOUCHER_ID ORDER BY line_no) LOOP
+    htp.p('<a class="t-Button t-Button--small" style="margin:3px" target="_blank" href="'
+          || apex_page.get_url(p_page => 48, p_items => 'P48_CHEQUE_ID', p_values => c.cheque_id)
+          || '">طباعة الشيك ' || apex_escape.html(c.cheque_no) || ' - ' || TO_CHAR(c.amount, 'FM999G999G999G990D00')
+          || ' - ' || c.due || '</a>');
+  END LOOP;
+END;
+PLSQL
+process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, code => src_wf('p45_load.sql', 'P45'), cond => ':P45_VOUCHER_ID IS NOT NULL');
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\n",
+  "IF :P45_VOUCHER_TYPE IS NULL OR :P45_VOUCHER_TYPE NOT IN ('R','P') THEN :P45_VOUCHER_TYPE := 'R'; END IF;",
+  "IF :P45_VOUCHER_ID IS NULL THEN",
+  "  :P45_STATUS := NULL;",
+  '  ' . date_default('P45_VOUCHER_DATE'),
+  'END IF;',
+  next_no_sql('P45_VOUCHER_ID', 'P45_VOUCHER_NO', "CASE :P45_VOUCHER_TYPE WHEN 'R' THEN '13' ELSE '14' END", 'P45_VOUCHER_DATE'),
+  ":P45_TITLE := CASE :P45_VOUCHER_TYPE WHEN 'R' THEN 'إذن توريد شيكات' ELSE 'إذن صرف شيكات' END;",
+  ":P45_ACC_LABEL := CASE :P45_VOUCHER_TYPE WHEN 'R' THEN 'الحساب المقابل (العميل / الجهة)' ELSE 'الحساب المقابل (المورد / الجهة)' END;",
+  ":P45_PARTY_LABEL := CASE :P45_VOUCHER_TYPE WHEN 'R' THEN 'استلمنا من' ELSE 'صرفنا إلى (المستفيد)' END;"));
+ajax('INIT_DATA', src('p45_init.sql'));
+ajax('SAVE_DOC',  src('p45_save.sql'));
+branch_self('P45_VOUCHER_ID', 'P45_VOUCHER_TYPE');
+end_page();
+
+page(id => 46, name => 'قائمة أذونات الشيكات', alias => 'CHEQUE-VOUCHERS', auth => 'IS_ACCOUNTANT');
+region(name => 'f', title => 'بحث', type => 'static', html => '', seq => 5);
+item(name => 'P46_TYPE', region => 'f', type => 'select', label => 'النوع', null => 'الكل', submit => 1,
+     lov => "SELECT 'توريد شيكات' d, 'R' r FROM dual UNION ALL SELECT 'صرف شيكات', 'P' FROM dual");
+item(name => 'P46_STATUS', region => 'f', type => 'select', label => 'الحالة', null => 'الكل', submit => 1, seq => 20, same_line => 1, lov => $LOV{wf_status});
+region(name => 'ir', title => 'أذونات الشيكات', type => 'ir', sql => src('p46_ir.sql'), seq => 10,
+       links => { 'الرقم' => 'f?p=&APP_ID.:45:&SESSION.::&DEBUG.:45:P45_VOUCHER_ID,P45_VOUCHER_TYPE:#VOUCHER_ID#,#VOUCHER_TYPE#' });
+end_page();
+
+# =====================================================================
+# 47 جدولة الشيكات: الاستحقاقات + الصرف / التحصيل / الارتداد (ينشئ قيد تسوية يمر بالمراجعة والاعتماد)
+# =====================================================================
+page(id => 47, name => 'جدولة الشيكات', alias => 'CHEQUES', auth => 'IS_ACCOUNTANT');
+table_region(name => 'alerts', title => 'تنبيهات الاستحقاق', seq => 3, sql => src('p47_alerts.sql'));
+region(name => 'f', title => 'بحث', type => 'static', html => '', seq => 5);
+item(name => 'P47_TYPE', region => 'f', type => 'select', label => 'النوع', null => 'الكل', submit => 1,
+     lov => "SELECT 'شيكات واردة (تحصيل)' d, 'R' r FROM dual UNION ALL SELECT 'شيكات صادرة (صرف)', 'P' FROM dual");
+item(name => 'P47_STATUS', region => 'f', type => 'select', label => 'حالة الشيك', null => 'الكل', submit => 1, seq => 20, same_line => 1,
+     lov => "SELECT 'قائم (لم يُسوَّ)' d, 'PENDING' r FROM dual UNION ALL SELECT 'تم الصرف / التحصيل', 'CLEARED' FROM dual UNION ALL SELECT 'مرتد', 'BOUNCED' FROM dual");
+item(name => 'P47_FROM', region => 'f', type => 'date', label => 'استحقاق من', seq => 30, same_line => 1);
+item(name => 'P47_TO',   region => 'f', type => 'date', label => 'إلى', seq => 40, same_line => 1);
+button(name => 'GO', region => 'f', label => 'عرض', seq => 10, hot => 1);
+region(name => 'ir', title => 'الشيكات حسب تاريخ الاستحقاق', type => 'ir', sql => src('p47_ir.sql'), seq => 10,
+       links => { 'إجراء' => 'f?p=&APP_ID.:47:&SESSION.::&DEBUG.::P47_CHEQUE_ID:#CHEQUE_ID#' });
+region(name => 'act', title => 'تسوية الشيك المختار', type => 'static', seq => 20, cond => ':P47_CHEQUE_ID IS NOT NULL',
+       html => '<div class="doc-meta">&P47_INFO.</div>');
+item(name => 'P47_CHEQUE_ID', region => 'act', type => 'hidden', seq => 1);
+item(name => 'P47_INFO', region => 'act', type => 'hidden', seq => 2);
+item(name => 'P47_KIND', region => 'act', type => 'hidden', seq => 3);
+item(name => 'P47_CHQ_STATUS', region => 'act', type => 'hidden', seq => 4);
+item(name => 'P47_SETTLE_DATE', region => 'act', type => 'date', label => 'تاريخ الصرف / التحصيل', seq => 10, required => 1);
+item(name => 'P47_SETTLE_BANK_ID', region => 'act', type => 'select', label => 'البنك المودع فيه (للشيكات الواردة)', seq => 20, same_line => 1,
+     null => 1, lov => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE cash_bank = 'B' AND is_active = 'Y' ORDER BY account_code",
+     cond => ":P47_KIND = 'R'");
+my $entry = ":G_USER_ROLE IN ('ADMIN','ENTRY')";
+button(name => 'CLEAR', region => 'act', label => '&P47_CLEAR_LABEL.', hot => 1, seq => 10,
+       cond => "$entry AND :P47_CHQ_STATUS = 'PENDING'", confirm => 'سيُنشأ قيد تسوية بانتظار المراجعة والاعتماد. متابعة؟');
+item(name => 'P47_CLEAR_LABEL', region => 'act', type => 'hidden', seq => 5);
+button(name => 'BOUNCE', region => 'act', label => 'شيك مرتد', seq => 20,
+       cond => "$entry AND :P47_CHQ_STATUS = 'PENDING'", confirm => 'تسجيل الشيك مرتداً وإنشاء قيد الارتداد؟');
+button(name => 'UNSETTLE', region => 'act', label => 'إلغاء التسوية', seq => 30, position => 'PREVIOUS',
+       cond => "$entry AND :P47_CHQ_STATUS IN ('CLEARED','BOUNCED') AND :P47_JNL_STATUS IN ('DRAFT','RETURNED')",
+       confirm => 'حذف قيد التسوية (غير المراجَع) وإرجاع الشيك قائماً؟');
+button(name => 'PRINT', region => 'act', label => 'طباعة الشيك', seq => 40, position => 'PREVIOUS', cond => ":P47_KIND = 'P'",
+       js => $print_js->(48, 'P48_CHEQUE_ID', 'P47_CHEQUE_ID'));
+button(name => 'SHOW_JV', region => 'act', label => 'عرض قيد التسوية', seq => 50, position => 'PREVIOUS',
+       cond => ":P47_CHQ_STATUS IN ('CLEARED','BOUNCED')",
+       url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:&P47_JOURNAL_ID.');
+item(name => 'P47_JOURNAL_ID', region => 'act', type => 'hidden', seq => 6);
+item(name => 'P47_JNL_STATUS', region => 'act', type => 'hidden', seq => 7);
+process(name => 'LOAD_CHEQUE', point => 'BEFORE_HEADER', seq => 10, cond => ':P47_CHEQUE_ID IS NOT NULL', code => src('p47_load.sql'));
+process(name => 'SETTLE', seq => 10, when_req => 'CLEAR,BOUNCE,UNSETTLE', code => src('p47_settle.sql'));
+branch_self('P47_CHEQUE_ID');
+end_page();
+
+# =====================================================================
+# 48 طباعة الشيك بمقاس الشيك البنكي
+# =====================================================================
+page(id => 48, name => 'طباعة شيك', alias => 'PRINT-CHEQUE', template => 'page_minimal', css => <<'CSS');
+body, .t-Body, .t-Body-main, .t-Body-content { background: #fff !important; }
+.t-Header, .t-Footer, .t-Body-nav, #t_Header, .t-Breadcrumb, .t-Body-title { display: none !important; }
+.chq { position: relative; border: 1px dashed #999; margin: 10px auto; box-sizing: border-box; font-family: "Arial", sans-serif; color: #000; }
+.chq div { position: absolute; white-space: nowrap; }
+.chq .w { white-space: normal; line-height: 1.6; }
+.no-print { text-align: center; margin: 10px 0; }
+@media print {
+  .no-print { display: none !important; }
+  .chq { border: 0; margin: 0; }
+  .t-Body-content, .t-Body-contentInner, .container { padding: 0 !important; margin: 0 !important; }
+}
+CSS
+region(name => 'chq', title => 'chq', type => 'plsql', no_header => 1, seq => 10, plsql => src_t('p48_print.sql'));
+item(name => 'P48_CHEQUE_ID', region => 'chq', type => 'hidden');
+end_page();
+
+# =====================================================================
+# 35 المستندات بانتظار المراجعة / الاعتماد / الترحيل / المعادة للمدخل
+# =====================================================================
+page(id => 35, name => 'بانتظار المراجعة والاعتماد', alias => 'PENDING', auth => 'IS_ACCOUNTANT');
+region(name => 'ir', title => 'المستندات حسب دورها في المراجعة والاعتماد', type => 'ir', sql => src('p35_ir.sql'), seq => 10,
+       hide => ['VOUCHER_TYPE', 'ADJ_TYPE'],
+       links => { 'قيد'       => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:#JOURNAL_ID#',
+                  'إذن نقدي'  => 'f?p=&APP_ID.:40:&SESSION.::&DEBUG.:40:P40_VOUCHER_ID,P40_VOUCHER_TYPE:#CASH_VOUCHER_ID#,#VOUCHER_TYPE#',
+                  'إذن شيكات' => 'f?p=&APP_ID.:45:&SESSION.::&DEBUG.:45:P45_VOUCHER_ID,P45_VOUCHER_TYPE:#CHQ_VOUCHER_ID#,#VOUCHER_TYPE#',
+                  'تسوية رواتب' => 'f?p=&APP_ID.:70:&SESSION.::&DEBUG.:70:P70_ADJ_ID,P70_ADJ_TYPE:#ADJ_ID#,#ADJ_TYPE#' });
 end_page();
 
 # =====================================================================
@@ -211,7 +416,7 @@ ajax('INIT_DATA', src('p50_init.sql'));
 ajax('SAVE_DOC',  src('p50_save.sql'));
 ajax('NEXT_NO', src('next_no.sql'));
 ajax('PAY_ACCOUNTS', src('pay_accounts.sql'));
-branch_self();
+branch_self('P50_INVOICE_ID', 'P50_INVOICE_TYPE');
 end_page();
 
 page(id => 51, name => 'قائمة المبيعات', alias => 'INVOICES', auth => 'IS_STORE');
@@ -264,7 +469,7 @@ DECLARE p purchase_invoices%ROWTYPE;
 BEGIN
   :P55_LOADED_ID := :P55_PINV_ID;
   SELECT * INTO p FROM purchase_invoices WHERE pinv_id = :P55_PINV_ID;
-  IF NOT (:G_USER_ROLE = 'GM' OR p.company_id = :G_COMPANY_ID) THEN
+  IF NOT (:G_USER_ROLE = 'ADMIN' OR p.company_id = :G_COMPANY_ID) THEN
     raise_application_error(-20001, 'ليس لديك صلاحية على هذه الفاتورة');
   END IF;
   :P55_INVOICE_TYPE := p.invoice_type; :P55_INVOICE_NO := p.invoice_no; :P55_COMPANY_ID := p.company_id;
@@ -289,7 +494,7 @@ ajax('INIT_DATA', src('p55_init.sql'));
 ajax('SAVE_DOC',  src('p55_save.sql'));
 ajax('NEXT_NO', src('next_no.sql'));
 ajax('PAY_ACCOUNTS', src('pay_accounts.sql'));
-branch_self();
+branch_self('P55_PINV_ID', 'P55_INVOICE_TYPE');
 end_page();
 
 page(id => 56, name => 'قائمة المشتريات', alias => 'PURCHASES', auth => 'IS_STORE');
@@ -365,6 +570,24 @@ HTML
 }
 
 # =====================================================================
+# 42 طباعة الإذن (نقدي أو شيكات) - 32 طباعة القيد
+# =====================================================================
+for my $pp ([42, 'طباعة إذن', 'PRINT-VOUCHER', 'P42_VOUCHER_ID', 'p42_print.sql'],
+            [32, 'طباعة قيد يومية', 'PRINT-JOURNAL', 'P32_JOURNAL_ID', 'p32_print.sql']) {
+  my ($pid, $name, $alias, $itm, $file) = @$pp;
+  page(id => $pid, name => $name, alias => $alias, template => 'page_minimal', css => $print_css . "\@page { size: A4; margin: 12mm; }\n",
+       onload => 'setTimeout(function () { window.print(); }, 600);');
+  region(name => 'brand', title => 'brand', type => 'static', no_header => 1, seq => 5, html => <<'HTML');
+<div class="no-print"><button type="button" class="t-Button t-Button--hot" onclick="window.print()">طباعة</button></div>
+<div class="inv-brand"><img src="#APP_FILES#logo.jpg" alt=""><div class="nm">&G_COMPANY_NAME.</div><div class="inf">&G_COMPANY_INFO.</div><div class="ln"></div></div>
+HTML
+  item(name => $itm, region => 'brand', type => 'hidden');
+  region(name => 'body', title => 'body', type => 'plsql', no_header => 1, seq => 10, plsql => src_t($file));
+  end_page();
+}
+
+
+# =====================================================================
 # 60 عكس القيود
 # =====================================================================
 page(id => 60, name => 'عكس القيود', alias => 'REVERSE', auth => 'IS_ACCOUNTANT');
@@ -399,7 +622,7 @@ page(id => 70, name => 'خصم / فرق مبلغ / حافز', alias => 'PAYADJ',
      js => src('p70.js'),
      onload => "adj.init();\n" . sprintf($SAVE_KEYS, 'P70_STATUS', 'P70_STATUS', 'DRAFT',
        "['P70_ADJ_DATE','P70_PAY_PERIOD','P70_ALLOWANCE_ID','P70_CURRENCY_CODE','P70_EXCHANGE_RATE','P70_REASON']"));
-region(name => 'head', title => '&P70_TITLE.', type => 'static', html => doc_status_html('P70_ADJ_NO', 'P70_STATUS', 'الرقم'));
+region(name => 'head', title => '&P70_TITLE.', type => 'static', html => doc_status_html('P70_ADJ_NO', 'P70_STATUS', 'الرقم', 'P70'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1]) for (['P70_ADJ_ID',1],['P70_ADJ_TYPE',2],['P70_ADJ_NO',3],['P70_STATUS',4],['P70_TITLE',5]);
 item(name => 'P70_ADJ_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 10, required => 1);
 item(name => 'P70_PAY_PERIOD', region => 'head', type => 'select', label => 'شهر الراتب', lov => $LOV{periods}, seq => 20, same_line => 1, required => 1);
@@ -408,25 +631,28 @@ item(name => 'P70_CURRENCY_CODE', region => 'head', type => 'select', label => '
 item(name => 'P70_EXCHANGE_RATE', region => 'head', label => 'سعر الصرف', seq => 50, same_line => 1);
 item(name => 'P70_REASON', region => 'head', label => 'السبب', seq => 60, same_line => 1, max => 500, required => 1);
 region(name => 'lines', title => 'الموظفون', type => 'static', seq => 20, html => '<div id="adj_lines"></div>');
-$draft = ":P70_STATUS IS NULL OR :P70_STATUS = 'DRAFT'";
-button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ مسودة (Ctrl+S)', js => "adj.save('DRAFT');", seq => 10, cond => $draft);
-button(name => 'APPROVE', region => 'lines', label => 'اعتماد', js => "adj.save('APPROVE');", hot => 1, seq => 20, cond => $draft);
+$draft = can_save('P70_STATUS');
+button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ (Ctrl+S)', js => "adj.save('DRAFT');", hot => 1, seq => 10, cond => $draft);
 button(name => 'CANCEL_DOC', region => 'lines', label => 'إلغاء المستند', js => "adj.save('CANCEL');", position => 'PREVIOUS', seq => 30,
-       cond => ":P70_ADJ_ID IS NOT NULL AND :P70_STATUS = 'DRAFT'");
+       cond => ":P70_ADJ_ID IS NOT NULL AND $draft");
 button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:70:&SESSION.::&DEBUG.:70:P70_ADJ_TYPE:&P70_ADJ_TYPE.', position => 'PREVIOUS', seq => 40);
-process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, cond => ':P70_ADJ_ID IS NOT NULL', code => <<'SQL');
-DECLARE a payroll_adj%ROWTYPE;
+# الاعتماد هو المرحلة النهائية (يُطبَّق في مسير الرواتب) - لا يوجد ترحيل
+wf_setup(page => 70, region => 'lines', table => 'payroll_adj', idcol => 'adj_id', id => 'P70_ADJ_ID',
+         status => 'P70_STATUS', doc => 'PAYADJ');
+process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, cond => ':P70_ADJ_ID IS NOT NULL', code => (my $p70load = <<'SQL') =~ s/__WF__/wf_load('P70')/er);
+DECLARE r payroll_adj%ROWTYPE;
 BEGIN
-  SELECT * INTO a FROM payroll_adj WHERE adj_id = :P70_ADJ_ID;
-  :P70_ADJ_TYPE      := a.adj_type;
-  :P70_ADJ_NO        := a.adj_no;
-  :P70_ADJ_DATE      := TO_CHAR(a.adj_date, 'DD/MM/YYYY');
-  :P70_PAY_PERIOD    := a.pay_period;
-  :P70_ALLOWANCE_ID  := a.allowance_id;
-  :P70_CURRENCY_CODE := a.currency_code;
-  :P70_EXCHANGE_RATE := a.exchange_rate;
-  :P70_REASON        := a.reason;
-  :P70_STATUS        := a.status;
+  SELECT * INTO r FROM payroll_adj WHERE adj_id = :P70_ADJ_ID;
+  __WF__
+  :P70_ADJ_TYPE      := r.adj_type;
+  :P70_ADJ_NO        := r.adj_no;
+  :P70_ADJ_DATE      := TO_CHAR(r.adj_date, 'DD/MM/YYYY');
+  :P70_PAY_PERIOD    := r.pay_period;
+  :P70_ALLOWANCE_ID  := r.allowance_id;
+  :P70_CURRENCY_CODE := r.currency_code;
+  :P70_EXCHANGE_RATE := r.exchange_rate;
+  :P70_REASON        := r.reason;
+  :P70_STATUS        := r.status;
 END;
 SQL
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\n",
@@ -439,7 +665,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   ":P70_TITLE := CASE :P70_ADJ_TYPE WHEN 'DED' THEN 'خصم' WHEN 'DIFF' THEN 'فرق مبلغ' ELSE 'حافز' END;"));
 ajax('INIT_DATA', src('p70_init.sql'));
 ajax('SAVE_DOC',  src('p70_save.sql'));
-branch_self();
+branch_self('P70_ADJ_ID', 'P70_ADJ_TYPE');
 end_page();
 
 page(id => 71, name => 'الخصومات والفروقات والحوافز', alias => 'PAYADJS', auth => 'IS_HR');
@@ -537,7 +763,7 @@ process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, cond => ':P9
 DECLARE t stock_trans%ROWTYPE;
 BEGIN
   SELECT * INTO t FROM stock_trans WHERE trans_id = :P90_TRANS_ID;
-  IF NOT (:G_USER_ROLE = 'GM' OR t.company_id = :G_COMPANY_ID) THEN
+  IF NOT (:G_USER_ROLE = 'ADMIN' OR t.company_id = :G_COMPANY_ID) THEN
     raise_application_error(-20001, 'ليس لديك صلاحية على هذه الحركة');
   END IF;
   :P90_TRANS_TYPE := t.trans_type; :P90_TRANS_NO := t.trans_no; :P90_COMPANY_ID := t.company_id;
@@ -557,7 +783,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   ":P90_TITLE := CASE :P90_TRANS_TYPE WHEN 'RECEIPT' THEN 'استلام بضاعة' WHEN 'ISSUE' THEN 'صرف داخلي' WHEN 'TRANSFER' THEN 'تحويل بين المخازن' WHEN 'COUNT' THEN 'تسوية جرد' WHEN 'OPENING' THEN 'إشعار إضافة - بضاعة أول المدة' ELSE 'حركة مخزون' END;"));
 ajax('INIT_DATA', src('p90_init.sql'));
 ajax('SAVE_DOC',  src('p90_save.sql'));
-branch_self();
+branch_self('P90_TRANS_ID', 'P90_TRANS_TYPE');
 end_page();
 
 page(id => 91, name => 'قائمة حركات المخزون', alias => 'STOCKS', auth => 'IS_STORE');

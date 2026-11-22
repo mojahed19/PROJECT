@@ -9,7 +9,7 @@ DECLARE
   l_cr      NUMBER := 0;
   PROCEDURE err (p VARCHAR2) IS BEGIN l_errs.EXTEND; l_errs(l_errs.COUNT) := p; END;
 BEGIN
-  IF :G_USER_ROLE NOT IN ('GM','ACCOUNTANT') THEN err('ليس لديك صلاحية'); END IF;
+  IF :G_USER_ROLE NOT IN ('ADMIN','ENTRY') THEN err('ليس لديك صلاحية'); END IF;
   SELECT COUNT(*) INTO l_cnt FROM companies WHERE company_id = l_company AND is_parent = 'N';
   IF l_cnt = 0 THEN err('اختر الفرع'); END IF;
   BEGIN l_date := TO_DATE(l_date_s, 'DD/MM/YYYY'); EXCEPTION WHEN OTHERS THEN err('تاريخ الميزانية غير صحيح'); END;

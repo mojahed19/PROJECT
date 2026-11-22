@@ -80,7 +80,7 @@ var pur = {
   save: function (action) {
     var errs = [];
     if (!apex.item('P55_WAREHOUSE_ID').getValue())        errs.push('اختر المخزن');
-    if (!apex.item('P55_SUPPLIER_ACCOUNT_ID').getValue()) errs.push('اختر المورد / الصندوق');
+    if (!apex.item('P55_SUPPLIER_ACCOUNT_ID').getValue()) errs.push('اختر المورد / الخزينة');
     errs = errs.concat(pur.grid.validate());
     if (errs.length) { DocUtil.showErrors(errs); return; }
 

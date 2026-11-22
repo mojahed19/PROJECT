@@ -7,7 +7,7 @@ WITH mv AS (
   JOIN companies c ON c.company_id = j.company_id
   WHERE j.status IN ('POSTED','REVERSED')
   AND (:P1_COMPANY_ID IS NULL OR j.company_id = :P1_COMPANY_ID)
-  AND (:G_USER_ROLE = 'GM' OR j.company_id = :G_COMPANY_ID)
+  AND (:G_USER_ROLE = 'ADMIN' OR j.company_id = :G_COMPANY_ID)
   AND (NVL(:P1_MODE,'SEP') = 'SEP' OR l.partner_company_id IS NULL)
 )
 SELECT TO_CHAR(journal_date, 'MM') AS "الشهر",

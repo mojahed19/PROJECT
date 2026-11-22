@@ -41,7 +41,7 @@ BEGIN
 
   -- المشتريات للشركة الأم فقط
   l_company := :G_PARENT_ID;
-  IF :G_USER_ROLE NOT IN ('GM','ACCOUNTANT','STORE') THEN err('ليس لديك صلاحية على فواتير المشتريات'); END IF;
+  IF :G_USER_ROLE NOT IN ('ADMIN','ENTRY') THEN err('ليس لديك صلاحية على فواتير المشتريات'); END IF;
   IF l_pay NOT IN ('CASH','CREDIT') OR l_pay IS NULL THEN err('اختر طريقة الدفع'); END IF;
 
   SELECT COUNT(*) INTO l_cnt FROM warehouses WHERE warehouse_id = l_wh AND company_id = l_company AND is_active = 'Y';
@@ -52,9 +52,9 @@ BEGIN
   AND (company_id IS NULL OR company_id = l_company)
   AND (l_pay = 'CREDIT' AND cash_bank = 'N' OR l_pay = 'CASH' AND cash_bank IN ('C','B'));
   IF l_cnt = 0 THEN
-    err(CASE WHEN l_pay = 'CREDIT' THEN 'اختر حساب المورد' ELSE 'اختر الصندوق أو الحساب البنكي' END);
+    err(CASE WHEN l_pay = 'CREDIT' THEN 'اختر حساب المورد' ELSE 'اختر الخزينة أو الحساب البنكي' END);
   END IF;
-  -- طريقة النقد تُستنتج من الحساب: بنك أو صندوق
+  -- طريقة النقد تُستنتج من الحساب: بنك أو خزينة
   BEGIN
     SELECT CASE cash_bank WHEN 'B' THEN 'BANK' WHEN 'C' THEN 'CASH' END INTO l_method FROM accounts WHERE account_id = l_acc;
   EXCEPTION WHEN NO_DATA_FOUND THEN l_method := NULL;

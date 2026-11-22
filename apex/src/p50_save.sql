@@ -1,6 +1,6 @@
 DECLARE
   -- فاتورة مبيعات / مرتجع مبيعات للشركة الأم
-  -- العميل: فرع من الشركة (آجل على حساب الفرع) أو عميل خارجي (نقدي: صندوق / تحويل بنكي ، أو آجل على حساب)
+  -- العميل: فرع من الشركة (آجل على حساب الفرع) أو عميل خارجي (نقدي: خزينة / تحويل بنكي ، أو آجل على حساب)
   -- رقم الفاتورة أرقام فقط: رمز النوع + السنة + متسلسل 5 أرقام
   --   1 مبيعات نقدية ، 2 مبيعات آجلة ، 5 مرتجع مبيعات نقدي ، 6 مرتجع مبيعات آجل
   l_clob   CLOB := apex_application.g_clob_01;
@@ -68,9 +68,9 @@ BEGIN
   l_sign := CASE l_type WHEN 'SALE' THEN -1 ELSE 1 END;           -- أثر الكمية على المخزن
   BEGIN l_date := TO_DATE(l_date_s, 'DD/MM/YYYY'); EXCEPTION WHEN OTHERS THEN err('التاريخ غير صحيح'); END;
 
-  IF :G_USER_ROLE NOT IN ('GM','ACCOUNTANT','STORE') THEN err('ليس لديك صلاحية على فواتير المبيعات'); END IF;
+  IF :G_USER_ROLE NOT IN ('ADMIN','ENTRY') THEN err('ليس لديك صلاحية على فواتير المبيعات'); END IF;
 
-  -- طريقة الدفع والحساب: نقدي = صندوق أو بنك ، آجل = حساب العميل (خارجي أو فرع)
+  -- طريقة الدفع والحساب: نقدي = خزينة أو بنك ، آجل = حساب العميل (خارجي أو فرع)
   -- نوع العميل وطريقة النقد تُستنتج من الحساب المختار
   IF l_pay NOT IN ('CASH','CREDIT') OR l_pay IS NULL THEN err('اختر طريقة الدفع: نقدي أو آجل'); END IF;
   l_cust := NULL;
@@ -82,10 +82,10 @@ BEGIN
     LEFT JOIN companies c ON c.company_id = ca.company_id
     WHERE  a.account_id = l_acc AND a.is_postable = 'Y' AND a.is_active = 'Y'
     AND    (a.company_id IS NULL OR a.company_id = l_company);
-    IF l_pay = 'CASH'   AND l_cb NOT IN ('C','B') THEN err('اختر صندوقاً أو حساباً بنكياً'); END IF;
+    IF l_pay = 'CASH'   AND l_cb NOT IN ('C','B') THEN err('اختر خزينةاً أو حساباً بنكياً'); END IF;
     IF l_pay = 'CREDIT' AND l_cb <> 'N'           THEN err('اختر حساب العميل'); END IF;
   EXCEPTION WHEN NO_DATA_FOUND THEN
-    err(CASE l_pay WHEN 'CASH' THEN 'اختر الصندوق أو الحساب البنكي' ELSE 'اختر حساب العميل' END);
+    err(CASE l_pay WHEN 'CASH' THEN 'اختر الخزينة أو الحساب البنكي' ELSE 'اختر حساب العميل' END);
   END;
   l_method := CASE WHEN l_pay = 'CASH' THEN CASE l_cb WHEN 'B' THEN 'BANK' ELSE 'CASH' END END;
   l_ctype  := CASE WHEN l_pay = 'CREDIT' AND l_cust IS NOT NULL THEN 'BRANCH' ELSE 'EXTERNAL' END;
@@ -219,7 +219,7 @@ BEGIN
     RETURNING journal_id INTO l_jid;
 
     IF l_type = 'SALE' THEN
-      jline(l_acc,       l_net,  l_base, l_cust);          -- العميل / الصندوق / البنك / ذمة الفرع
+      jline(l_acc,       l_net,  l_base, l_cust);          -- العميل / الخزينة / البنك / ذمة الفرع
       jline(l_sales_acc, -l_net, -l_base, l_cust);         -- المبيعات
       jline(l_cogs_acc,  l_cogs / l_rate,  l_cogs);        -- تكلفة البضاعة المباعة
       jline(l_inv_acc,   -l_cogs / l_rate, -l_cogs);       -- المخزون

@@ -70,6 +70,12 @@ BEGIN
     l_msg := reverse_one(l_main.journal_id);
     UPDATE vouchers SET status = 'REVERSED' WHERE voucher_id = l_main.source_id;
 
+  ELSIF l_main.source_type = 'CHEQUE' THEN
+    -- عكس قيد تسوية شيك: يعود الشيك قائماً
+    l_msg := reverse_one(l_main.journal_id);
+    UPDATE cheques SET status = 'PENDING', settle_date = NULL, settle_bank_id = NULL, settle_journal_id = NULL, settled_by = NULL
+    WHERE  cheque_id = l_main.source_id AND settle_journal_id = l_main.journal_id;
+
   ELSE
     l_msg := reverse_one(l_main.journal_id);
   END IF;

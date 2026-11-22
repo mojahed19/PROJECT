@@ -16,7 +16,7 @@ rows_ AS (
   AND    j.status IN ('POSTED','REVERSED')
   AND    (:P81_CURRENCY   IS NULL OR j.currency_code = :P81_CURRENCY)
   AND    (:P81_COMPANY_ID IS NULL OR j.company_id = :P81_COMPANY_ID)
-  AND    (:G_USER_ROLE = 'GM' OR j.company_id = :G_COMPANY_ID)
+  AND    (:G_USER_ROLE = 'ADMIN' OR j.company_id = :G_COMPANY_ID)
 )
 SELECT NULL AS "التاريخ", NULL AS "رقم القيد", 'رصيد سابق' AS "النوع", NULL AS "الشركة",
        NULL AS "البيان", NULL AS "العملة",

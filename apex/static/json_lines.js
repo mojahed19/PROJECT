@@ -15,7 +15,7 @@
  *    onTotals  : function(totals, grid){ ... },
  *    readOnly  : false
  *  });
- *  grid.setLov('accounts', [{id:1, code:'1101001', name:'الصندوق'}]);
+ *  grid.setLov('accounts', [{id:1, code:'1101001', name:'الخزينة'}]);
  *  grid.setData([...]);   grid.getData();   grid.validate();
  *
  *  لوحة المفاتيح:
@@ -515,7 +515,7 @@ window.DocUtil = {
       .done(function (d) { if (d.rate) apex.item(rateItem).setValue(d.rate); });
   },
 
-  // قائمة الحسابات حسب طريقة الدفع (نقدي: الصناديق والبنوك ، آجل: العملاء / الموردون)
+  // قائمة الحسابات حسب طريقة الدفع (نقدي: الخزائن والبنوك ، آجل: العملاء / الموردون)
   // تُبنى خيارات القائمة في المتصفح دون إعادة تحميل الصفحة (Ajax Callback اسمه PAY_ACCOUNTS)
   payAccounts: function (payItem, accItem, kind, keepValue) {
     var sel = document.getElementById(accItem);
@@ -523,7 +523,7 @@ window.DocUtil = {
     var pay = apex.item(payItem).getValue() || 'CASH';
     var v = keepValue ? apex.item(accItem).getValue() : '';
     var lbl = document.querySelector('label[for="' + accItem + '"]');
-    if (lbl) lbl.textContent = pay === 'CASH' ? 'الصندوق / الحساب البنكي' : (kind === 'PURCHASE' ? 'حساب المورد' : 'حساب العميل');
+    if (lbl) lbl.textContent = pay === 'CASH' ? 'الخزينة / الحساب البنكي' : (kind === 'PURCHASE' ? 'حساب المورد' : 'حساب العميل');
     return apex.server.process('PAY_ACCOUNTS', {x01: pay, x02: kind}, {dataType: 'json'}).done(function (list) {
       var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
       sel.innerHTML = '<option value="">- اختر -</option>' + list.map(function (o) {
@@ -545,6 +545,28 @@ window.DocUtil = {
     }, {dataType: 'json'}).done(function (d) {
       if (d.no) el.innerHTML = d.no + ' <small style="color:#888">(رقم جديد)</small>';
     });
+  },
+
+  // التعديل للمدخل ومدير النظام فقط وفي حالة مسودة أو معاد للمدخل
+  canEdit: function (status) {
+    var r = window.APP_ROLE;
+    return (r === 'ADMIN' || r === 'ENTRY') && (!status || status === 'DRAFT' || status === 'RETURNED');
+  },
+
+  // إجراءات المراجعة والاعتماد (تُرسل الصفحة بطلب باسم الإجراء)
+  wf: function (action) {
+    var msg = {REVIEW: 'تأكيد مراجعة المستند؟', UNREVIEW: 'إلغاء المراجعة وإرجاع المستند مسودة؟',
+               APPROVE: 'اعتماد المستند؟', UNAPPROVE: 'إلغاء الاعتماد وإرجاع المستند مُراجَعاً؟',
+               POST: 'ترحيل المستند؟ بعد الترحيل لا يمكن التعديل أو إلغاء الاعتماد'};
+    if (action === 'RETURN') {
+      var n = window.prompt('سبب إعادة المستند للمدخل:');
+      if (!n) return;
+      var it = document.querySelector('input[id$="_WF_NOTE"]');
+      if (it) apex.item(it.id).setValue(n);
+      apex.submit({request: 'RETURN', showWait: true});
+      return;
+    }
+    apex.message.confirm(msg[action], function (ok) { if (ok) apex.submit({request: action, showWait: true}); });
   },
 
   showErrors: function (errs) {

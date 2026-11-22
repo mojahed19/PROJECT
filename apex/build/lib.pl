@@ -93,7 +93,8 @@ sub page {
     warn_on_unsaved_changes => "'N'",
     autocomplete_on_off     => "'OFF'",
     javascript_code         => $p{js}     ? txt($p{js})     : undef,
-    javascript_code_onload  => $p{onload} ? txt($p{onload}) : undef,
+    javascript_code_onload  => $p{onload} ? txt("window.APP_ROLE = '&G_USER_ROLE.';
+" . $p{onload}) : undef,
     inline_css              => $p{css}    ? txt($p{css})    : undef,
     step_template           => $p{template} ? wid($T{$p{template}}) : undef,
     page_template_options   => "'#DEFAULT#'",
@@ -108,6 +109,7 @@ sub end_page { out("end;\n/\n"); }
 
 sub region {
   my %r = @_;
+  push @main::PLSQL, ["P$CUR_PAGE region $r{name} cond", "BEGIN IF $r{cond} THEN NULL; END IF; END;"] if $r{cond};
   my $id = nid();
   $REG{"$CUR_PAGE:$r{name}"} = $id;
   my $tmpl = $T{ $r{template} // ($r{type} eq 'ir' ? 'reg_ir' : 'reg_std') };
@@ -280,7 +282,7 @@ BEGIN
       l_col := apex_exec.get_column(l_ctx, i);
       IF l_col.name NOT LIKE '%\_ID' ESCAPE '\' AND l_col.name <> 'SORT_KEY' THEN
         IF l_col.data_type = apex_exec.c_data_type_number THEN
-          l_val := TO_CHAR(apex_exec.get_number(l_ctx, i), 'FM999G999G999G999G990D00');
+          l_val := TO_CHAR(apex_exec.get_number(l_ctx, i), CASE WHEN l_col.name LIKE 'عدد%' THEN 'FM999G999G990' ELSE 'FM999G999G999G999G990D00' END);
           htp.p('<td class="jl-num">' || l_val || '</td>');
         ELSE
           htp.p('<td>' || apex_escape.html(apex_exec.get_varchar2(l_ctx, i)) || '</td>');
@@ -302,6 +304,7 @@ PLSQL
 
 sub item {
   my %i = @_;
+  push @main::PLSQL, ["P$CUR_PAGE item $i{name} cond", "BEGIN IF $i{cond} THEN NULL; END IF; END;"] if $i{cond};
   my $id = nid();
   my $type = $i{type} // 'text';
   # شركة واحدة وعملة واحدة: حقول الشركة والعملة وسعر الصرف وخيارات الدمج تُخفى في كل الشاشات
@@ -363,6 +366,7 @@ sub item {
 
 sub button {
   my %b = @_;
+  push @main::PLSQL, ["P$CUR_PAGE button $b{name} cond", "BEGIN IF $b{cond} THEN NULL; END IF; END;"] if $b{cond};
   my $id = nid();
   $BTN{"$CUR_PAGE:$b{name}"} = $id;
   my $action = $b{js} ? 'REDIRECT_URL' : $b{url} ? 'REDIRECT_URL' : 'SUBMIT';
@@ -396,6 +400,7 @@ sub button {
 
 sub process {
   my %p = @_;
+  push @main::PLSQL, ["P$CUR_PAGE process $p{name} cond", "BEGIN IF $p{cond} THEN NULL; END IF; END;"] if $p{cond} && !$p{when_req};
   my $id = nid();
   my %type;
   if (($p{kind} // 'plsql') eq 'plsql') {
@@ -442,10 +447,12 @@ sub check {
 
 sub branch_self {
   my $page = $CUR_PAGE;
+  my @keep = @_;   # عناصر تبقى بعد الحفظ (المستند يبقى ظاهراً)
+  my $set = @keep ? join(",", @keep) . ":" . join(",", map { "&$_." } @keep) : ":";
   out("wwv_flow_imp_page.create_page_branch(\n" . args(
     id               => wid(nid()),
     branch_name      => "'Go To Page $page'",
-    branch_action    => lit("f?p=&APP_ID.:$page:&SESSION.::&DEBUG.:::&success_msg=#SUCCESS_MSG#"),
+    branch_action    => lit("f?p=&APP_ID.:$page:&SESSION.::&DEBUG.::$set&success_msg=#SUCCESS_MSG#"),
     branch_point     => "'AFTER_PROCESSING'",
     branch_type      => "'REDIRECT_URL'",
     branch_sequence  => 10,

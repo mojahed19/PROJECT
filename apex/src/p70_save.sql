@@ -34,12 +34,12 @@ BEGIN
   SELECT COUNT(*) INTO l_cnt FROM currencies WHERE currency_code = l_cur AND is_base = 'Y';
   IF l_cnt = 1 THEN l_rate := 1; END IF;
 
-  IF :G_USER_ROLE NOT IN ('GM','HR') THEN err('ليس لديك صلاحية على شاشات الرواتب'); END IF;
+  IF :G_USER_ROLE NOT IN ('ADMIN','ENTRY') THEN err('ليس لديك صلاحية على شاشات الرواتب'); END IF;
 
   IF l_id IS NOT NULL THEN
     BEGIN
       SELECT status, adj_no INTO l_status, l_no FROM payroll_adj WHERE adj_id = l_id FOR UPDATE;
-      IF l_status <> 'DRAFT' THEN err('المستند ' || l_no || ' معتمد أو مطبَّق ولا يمكن تعديله'); END IF;
+      IF l_status NOT IN ('DRAFT','RETURNED') THEN err('المستند ' || l_no || ' تمت مراجعته أو اعتماده ولا يمكن تعديله'); END IF;
     EXCEPTION WHEN NO_DATA_FOUND THEN err('المستند غير موجود'); END;
   ELSIF l_action = 'CANCEL' THEN
     err('لا يوجد مستند محفوظ لإلغائه');
@@ -84,7 +84,7 @@ BEGIN
       WHERE company_id = l_parent AND doc_type = l_type AND fy_year = EXTRACT(YEAR FROM l_date)
       RETURNING last_no INTO l_seq;
       IF SQL%ROWCOUNT = 0 THEN
-        INSERT INTO doc_sequences VALUES (l_parent, l_type, EXTRACT(YEAR FROM l_date), 1);
+        INSERT INTO doc_sequences (company_id, doc_type, fy_year, last_no) VALUES (l_parent, l_type, EXTRACT(YEAR FROM l_date), 1);
         l_seq := 1;
       END IF;
       l_no := l_type || '-' || EXTRACT(YEAR FROM l_date) || '-' || LPAD(l_seq, 5, '0');
@@ -113,9 +113,7 @@ BEGIN
 
     UPDATE payroll_adj
     SET total_amount = l_total,
-        status      = CASE WHEN l_action = 'APPROVE' THEN 'APPROVED' ELSE 'DRAFT' END,
-        approved_by = CASE WHEN l_action = 'APPROVE' THEN :APP_USER END,
-        approved_on = CASE WHEN l_action = 'APPROVE' THEN SYSDATE END
+        status = 'DRAFT', return_note = NULL
     WHERE adj_id = l_id;
   END IF;
 

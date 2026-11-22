@@ -85,7 +85,7 @@ var inv = {
   save: function (action) {
     var errs = [], g = function (n) { return apex.item('P50_' + n).getValue(); };
     if (!g('WAREHOUSE_ID')) errs.push('اختر المخزن');
-    if (!g('ACCOUNT_ID')) errs.push(g('PAY_TYPE') === 'CASH' ? 'اختر الصندوق أو الحساب البنكي' : 'اختر حساب العميل');
+    if (!g('ACCOUNT_ID')) errs.push(g('PAY_TYPE') === 'CASH' ? 'اختر الخزينة أو الحساب البنكي' : 'اختر حساب العميل');
     errs = errs.concat(inv.grid.validate());
     if (errs.length) { DocUtil.showErrors(errs); return; }
 

@@ -48,13 +48,14 @@ BEGIN
   END;
 
   ---------------------------------------------------------------- التحقق من الرأس
+  IF :G_USER_ROLE NOT IN ('ADMIN','ENTRY') THEN err('إدخال القيود وتعديلها من صلاحية المدخل فقط'); END IF;
   IF l_company IS NULL THEN err('اختر الشركة'); END IF;
   IF l_jt      IS NULL THEN err('اختر نوع القيد'); END IF;
   IF l_cur     IS NULL THEN err('اختر العملة'); END IF;
   IF NVL(l_rate, 0) <= 0 THEN err('سعر الصرف غير صحيح'); END IF;
 
   SELECT COUNT(*) INTO l_cnt FROM dual
-  WHERE  :G_USER_ROLE = 'GM' OR l_company = :G_COMPANY_ID
+  WHERE  :G_USER_ROLE = 'ADMIN' OR l_company = :G_COMPANY_ID
      OR  EXISTS (SELECT 1 FROM user_companies
                  WHERE user_name = UPPER(:APP_USER) AND company_id = l_company);
   IF l_cnt = 0 THEN err('ليس لديك صلاحية على هذه الشركة'); END IF;
@@ -77,7 +78,7 @@ BEGIN
     BEGIN
       SELECT status, journal_no INTO l_status, l_no
       FROM   journals WHERE journal_id = l_id FOR UPDATE;
-      IF l_status <> 'DRAFT' THEN err('القيد مرحّل ولا يمكن تعديله. استخدم شاشة عكس القيود'); END IF;
+      IF l_status NOT IN ('DRAFT','RETURNED') THEN err('القيد ' || l_no || ' تمت مراجعته أو اعتماده أو ترحيله ولا يمكن تعديله'); END IF;
     EXCEPTION WHEN NO_DATA_FOUND THEN err('القيد غير موجود');
     END;
   END IF;
@@ -153,12 +154,11 @@ BEGIN
                              debit_base, credit_base, partner_company_id, description)
   SELECT l_id, ROWNUM, account_id, NVL(debit, 0), NVL(credit, 0),
          ROUND(NVL(debit, 0) * l_rate, 2), ROUND(NVL(credit, 0) * l_rate, 2),
-         partner_company_id, description
+         NULL, description
   FROM   JSON_TABLE(l_clob, '$.lines[*]' COLUMNS (
            account_id         NUMBER        PATH '$.ACCOUNT_ID',
            debit              NUMBER        PATH '$.DEBIT',
            credit             NUMBER        PATH '$.CREDIT',
-           partner_company_id NUMBER        PATH '$.PARTNER_COMPANY_ID',
            description        VARCHAR2(500) PATH '$.DESCRIPTION'));
 
   -- فرق التقريب بالعملة الأساسية يُضاف على آخر سطر دائن
@@ -171,16 +171,16 @@ BEGIN
 
   UPDATE journals
   SET    total_debit = l_dr, total_credit = l_cr,
-         status    = CASE WHEN l_action = 'POST' THEN 'POSTED' ELSE 'DRAFT' END,
-         posted_by = CASE WHEN l_action = 'POST' THEN :APP_USER END,
-         posted_on = CASE WHEN l_action = 'POST' THEN SYSDATE END
+         status = 'DRAFT', return_note = NULL
   WHERE  journal_id = l_id;
+  INSERT INTO doc_actions (doc_type, doc_id, action, from_status, to_status, action_by)
+  VALUES ('JOURNAL', l_id, 'SAVE', l_status, 'DRAFT', :APP_USER);
 
   apex_json.open_object;
   apex_json.write('ok', TRUE);
   apex_json.write('id', l_id);
   apex_json.write('no', l_no);
-  apex_json.write('message', CASE WHEN l_action = 'POST' THEN 'تم حفظ وترحيل القيد ' ELSE 'تم حفظ القيد ' END || l_no);
+  apex_json.write('message', 'تم حفظ القيد ' || l_no || ' - بانتظار المراجعة');
   apex_json.close_object;
 EXCEPTION
   WHEN OTHERS THEN

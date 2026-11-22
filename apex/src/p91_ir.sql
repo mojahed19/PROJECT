@@ -9,4 +9,4 @@ FROM stock_trans t
 JOIN companies c ON c.company_id = t.company_id
 JOIN warehouses w ON w.warehouse_id = t.warehouse_id
 LEFT JOIN warehouses w2 ON w2.warehouse_id = t.to_warehouse_id
-WHERE (:G_USER_ROLE = 'GM' OR t.company_id = :G_COMPANY_ID)
+WHERE (:G_USER_ROLE = 'ADMIN' OR t.company_id = :G_COMPANY_ID)

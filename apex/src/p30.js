@@ -7,14 +7,12 @@ var jv = {
 
     jv.grid = new JsonLines({
       container: '#jv_lines',
-      readOnly : status !== 'DRAFT',
+      readOnly : !DocUtil.canEdit(status),
       columns  : [
         {name: 'ACCOUNT_ID',  label: 'الحساب', type: 'lov', lov: 'accounts', required: true, width: '24em'},
         {name: 'DEBIT',       label: 'مدين',   type: 'number', decimals: 2, total: true, width: '9em'},
         {name: 'CREDIT',      label: 'دائن',   type: 'number', decimals: 2, total: true, width: '9em'},
-        {name: 'DESCRIPTION', label: 'البيان', type: 'text', maxLength: 500, ignoreEmpty: true},
-        {name: 'PARTNER_COMPANY_ID', label: 'شركة مقابلة', type: 'select', width: '12em',
-         options: function () { return jv.companies; }}
+        {name: 'DESCRIPTION', label: 'البيان', type: 'text', maxLength: 500, ignoreEmpty: true}
       ],
       // مدين أو دائن فقط في السطر
       onChange: function (row, col) {
@@ -90,8 +88,7 @@ var jv = {
         apex.page.submit({request: 'RELOAD', set: {P30_JOURNAL_ID: d.id}, showWait: true});
       });
     };
-    if (action === 'POST') apex.message.confirm('بعد الترحيل لا يمكن تعديل القيد. متابعة؟', function (ok) { if (ok) go(); });
-    else go();
+    go();
   },
 
   remove: function () {

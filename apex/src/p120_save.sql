@@ -10,9 +10,9 @@ DECLARE
   PROCEDURE err (p VARCHAR2) IS BEGIN l_errs.EXTEND; l_errs(l_errs.COUNT) := p; END;
 BEGIN
   SELECT COUNT(*) INTO l_cnt FROM dual
-  WHERE :G_USER_ROLE = 'GM' OR (:G_USER_ROLE = 'ACCOUNTANT' AND l_company = :G_COMPANY_ID);
+  WHERE :G_USER_ROLE = 'ADMIN' OR (:G_USER_ROLE = 'ACCOUNTANT' AND l_company = :G_COMPANY_ID);
   IF l_cnt = 0 THEN err('ليس لديك صلاحية على موازنة هذه الشركة'); END IF;
-  IF apex_application.g_x01 = 'APPROVE' AND :G_USER_ROLE <> 'GM' THEN err('الاعتماد للمدير العام فقط'); END IF;
+  IF apex_application.g_x01 = 'APPROVE' AND :G_USER_ROLE NOT IN ('ADMIN','APPROVER') THEN err('الاعتماد للمعتمد أو مدير النظام فقط'); END IF;
 
   BEGIN
     SELECT budget_id, status INTO l_id, l_status FROM budgets

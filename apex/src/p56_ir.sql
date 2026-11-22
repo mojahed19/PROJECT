@@ -12,5 +12,5 @@ FROM purchase_invoices p
 JOIN companies  c ON c.company_id = p.company_id
 JOIN accounts   a ON a.account_id = p.supplier_account_id
 JOIN warehouses w ON w.warehouse_id = p.warehouse_id
-WHERE (:G_USER_ROLE = 'GM' OR p.company_id = :G_COMPANY_ID
+WHERE (:G_USER_ROLE = 'ADMIN' OR p.company_id = :G_COMPANY_ID
        OR p.company_id IN (SELECT company_id FROM user_companies WHERE user_name = UPPER(:APP_USER)))

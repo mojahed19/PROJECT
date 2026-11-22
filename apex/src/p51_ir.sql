@@ -5,7 +5,7 @@ SELECT i.invoice_id,
        CASE i.customer_type WHEN 'BRANCH' THEN 'فرع: ' || c.name_ar
             ELSE NVL(i.customer_name, a.name_ar) END AS "العميل",
        CASE WHEN i.pay_type = 'CREDIT' THEN 'آجل'
-            WHEN i.pay_method = 'BANK' THEN 'نقدي - تحويل بنكي' ELSE 'نقدي - صندوق' END AS "الدفع",
+            WHEN i.pay_method = 'BANK' THEN 'نقدي - تحويل بنكي' ELSE 'نقدي - خزينة' END AS "الدفع",
        a.name_ar AS "الحساب",
        w.name_ar AS "المخزن",
        i.net_amount AS "الصافي", i.currency_code AS "العملة",

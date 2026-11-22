@@ -1,5 +1,5 @@
 # =====================================================================
-#  pages_master.pl - Ø§ÙØµÙØ­Ø© Ø§ÙØ¹Ø§ÙØ© 0Ø Ø´Ø¬Ø±Ø© Ø§ÙØ­Ø³Ø§Ø¨Ø§Øª 10Ø ÙØµÙØ­Ø§Øª Ø§ÙØ¨ÙØ§ÙØ§Øª Ø§ÙØ£Ø³Ø§Ø³ÙØ© (ÙØ§Ø¦ÙØ© + ÙÙÙØ°Ø¬)
+#  pages_master.pl - الصفحة العامة 0، شجرة الحسابات 10، وصفحات البيانات الأساسية (قائمة + نموذج)
 # =====================================================================
 use strict;
 use warnings;
@@ -7,9 +7,9 @@ use utf8;
 our %LOV;
 our %T;
 
-# ---------------------------------------------------------------- 0 Ø§ÙØµÙØ­Ø© Ø§ÙØ¹Ø§ÙØ©
+# ---------------------------------------------------------------- 0 الصفحة العامة
 page(id => 0, name => 'Global Page', alias => 'GLOBAL');
-# Ø±Ø£Ø³ ÙØ¸ÙØ± Ø¹ÙØ¯ Ø·Ø¨Ø§Ø¹Ø© Ø£Ù ØµÙØ­Ø© Ø£Ù ØªÙØ±ÙØ±: Ø§ÙØ´Ø¹Ø§Ø± ÙØ§Ø³Ù Ø§ÙØ´Ø±ÙØ© ÙØ¨ÙØ§ÙØ§ØªÙØ§
+# رأس يظهر عند طباعة أي صفحة أو تقرير: الشعار واسم الشركة وبياناتها
 region(name => 'print_head', title => 'print', type => 'static', no_header => 1, template => 'reg_blank', seq => 1,
        cond => ":APP_PAGE_ID NOT IN (53, 54, 57, 82, 9999)", html => <<'HTML');
 <div class="print-only-head">
@@ -19,14 +19,14 @@ region(name => 'print_head', title => 'print', type => 'static', no_header => 1,
 HTML
 end_page();
 
-# ---------------------------------------------------------------- ÙÙÙÙØ¯ Ø§ÙÙØ§Ø¦ÙØ© + Ø§ÙÙÙÙØ°Ø¬
+# ---------------------------------------------------------------- مولّد القائمة + النموذج
 # cols: [COLUMN, label, type, lov, required, dtype]
 sub crud {
   my %c = @_;
   my ($L, $F, $tbl) = ($c{list}, $c{form}, $c{table});
   my @cols = @{ $c{cols} };
 
-  # ---------- ØµÙØ­Ø© Ø§ÙÙØ§Ø¦ÙØ©
+  # ---------- صفحة القائمة
   my @sel = ('t.ROWID');
   for my $col (@cols) {
     my ($name, $label, $type, $lov) = @$col;
@@ -43,11 +43,11 @@ sub crud {
        onload => "apex.jQuery(window).on('apexafterclosedialog', function () { location.reload(); });");
   region(name => 'ir', title => $c{title}, type => 'ir', sql => $sql, pk => 'ROWID',
          detail_link => "f?p=&APP_ID.:$F:&APP_SESSION.::&DEBUG.:RP:P${F}_ROWID:\\#ROWID#\\");
-  button(name => 'CREATE', region => 'ir', label => 'Ø¥Ø¶Ø§ÙØ©', hot => 1, position => 'RIGHT_OF_IR_SEARCH_BAR',
+  button(name => 'CREATE', region => 'ir', label => 'إضافة', hot => 1, position => 'RIGHT_OF_IR_SEARCH_BAR',
          url => "f?p=&APP_ID.:$F:&APP_SESSION.::&DEBUG.:$F\::");
   end_page();
 
-  # ---------- ØµÙØ­Ø© Ø§ÙÙÙÙØ°Ø¬ (Modal)
+  # ---------- صفحة النموذج (Modal)
   my $fsql = "SELECT ROWID, " . join(', ', map { $_->[0] } @cols) . " FROM $tbl";
   page(id => $F, name => $c{title}, alias => "$c{alias}-FORM", modal => 1, auth => $c{auth});
   region(name => 'form', title => $c{title}, type => 'form', sql => $fsql, seq => 10);
@@ -62,11 +62,11 @@ sub crud {
          type => $type eq 'num' ? 'text' : $type, lov => $lov, null => ($type eq 'select' && !$req) ? 1 : undef,
          required => $req, seq => ($seq += 10));
   }
-  button(name => 'CANCEL', region => 'buttons', label => 'Ø¥ÙØºØ§Ø¡', position => 'CLOSE', js => 'apex.navigation.dialog.cancel(true);', seq => 10);
-  button(name => 'DELETE', region => 'buttons', label => 'Ø­Ø°Ù', position => 'DELETE', seq => 20, dml => 'DELETE',
+  button(name => 'CANCEL', region => 'buttons', label => 'إلغاء', position => 'CLOSE', js => 'apex.navigation.dialog.cancel(true);', seq => 10);
+  button(name => 'DELETE', region => 'buttons', label => 'حذف', position => 'DELETE', seq => 20, dml => 'DELETE',
          if_not_null => "P${F}_ROWID", novalidate => 1, confirm => '&APP_TEXT$DELETE_MSG!RAW.');
-  button(name => 'SAVE', region => 'buttons', label => 'Ø­ÙØ¸ Ø§ÙØªØ¹Ø¯ÙÙØ§Øª', position => 'NEXT', seq => 30, hot => 1, dml => 'UPDATE', if_not_null => "P${F}_ROWID");
-  button(name => 'CREATE', region => 'buttons', label => 'Ø­ÙØ¸', position => 'NEXT', seq => 40, hot => 1, dml => 'INSERT', if_null => "P${F}_ROWID");
+  button(name => 'SAVE', region => 'buttons', label => 'حفظ التعديلات', position => 'NEXT', seq => 30, hot => 1, dml => 'UPDATE', if_not_null => "P${F}_ROWID");
+  button(name => 'CREATE', region => 'buttons', label => 'حفظ', position => 'NEXT', seq => 40, hot => 1, dml => 'INSERT', if_null => "P${F}_ROWID");
   process(name => 'Init form', point => 'BEFORE_HEADER', kind => 'form_init', region => 'form');
   process(name => 'Process form', seq => 10, kind => 'form_dml', region => 'form');
   process(name => 'Close Dialog', seq => 20, kind => 'close', when_req => 'CREATE,SAVE,DELETE');
@@ -84,31 +84,31 @@ my $allows   = "SELECT name_ar d, allowance_id r FROM allowance_types ORDER BY n
 my $users    = "SELECT full_name || ' (' || user_name || ')' d, user_name r FROM app_users ORDER BY full_name";
 my $whs      = "SELECT c.name_ar || ' / ' || w.name_ar d, w.warehouse_id r FROM warehouses w JOIN companies c ON c.company_id = w.company_id ORDER BY c.company_code, w.name_ar";
 my $terms    = "SELECT name_ar d, terminal_id r FROM pos_terminals ORDER BY name_ar";
-my $roles    = "SELECT 'Ø§ÙÙØ¯ÙØ± Ø§ÙØ¹Ø§Ù' d, 'GM' r FROM dual UNION ALL SELECT 'ÙØ­Ø§Ø³Ø¨', 'ACCOUNTANT' FROM dual UNION ALL SELECT 'ÙÙØ§Ø±Ø¯ Ø¨Ø´Ø±ÙØ©', 'HR' FROM dual UNION ALL SELECT 'Ø£ÙÙÙ ÙØ®Ø²Ù', 'STORE' FROM dual UNION ALL SELECT 'ÙØ§Ø´ÙØ±', 'CASHIER' FROM dual UNION ALL SELECT 'ÙØ³ØªØ®Ø¯Ù', 'USER' FROM dual";
-my $settings = "SELECT code || ' - ' || n d, code r FROM (SELECT 'SALES' code, 'ÙØ¨ÙØ¹Ø§Øª ÙÙØ´Ø±ÙØ§Øª' n FROM dual UNION ALL SELECT 'SALES_RETURN', 'ÙØ±Ø¯ÙØ¯Ø§Øª Ø§ÙÙØ¨ÙØ¹Ø§Øª' FROM dual UNION ALL SELECT 'INTERCO_AP', 'ÙØ³ØªØ­Ù ÙÙØ´Ø±ÙØ© Ø§ÙØ£Ù' FROM dual UNION ALL SELECT 'PURCHASES', 'ÙØ§Ø±Ø¯ ÙÙ Ø§ÙØ£Ù (ÙØ®Ø²ÙÙ)' FROM dual UNION ALL SELECT 'INVENTORY', 'Ø§ÙÙØ®Ø²ÙÙ' FROM dual UNION ALL SELECT 'COGS', 'ØªÙÙÙØ© Ø§ÙÙØ¨ÙØ¹Ø§Øª' FROM dual UNION ALL SELECT 'INVENTORY_ADJ', 'ÙØ±ÙÙØ§Øª Ø§ÙØ¬Ø±Ø¯' FROM dual UNION ALL SELECT 'POS_SALES', 'ÙØ¨ÙØ¹Ø§Øª ÙÙØ§Ø· Ø§ÙØ¨ÙØ¹' FROM dual UNION ALL SELECT 'CASH_DIFF', 'Ø¹Ø¬Ø² ÙØ²ÙØ§Ø¯Ø© Ø§ÙØµÙØ§Ø¯ÙÙ' FROM dual UNION ALL SELECT 'SALARY_EXP', 'ÙØµØ±ÙÙ Ø§ÙØ±ÙØ§ØªØ¨' FROM dual UNION ALL SELECT 'INCENTIVE_EXP', 'ÙØµØ±ÙÙ Ø§ÙØ­ÙØ§ÙØ²' FROM dual UNION ALL SELECT 'SALARY_DIFF', 'ÙØ±ÙÙØ§Øª Ø§ÙØ±ÙØ§ØªØ¨' FROM dual UNION ALL SELECT 'SALARY_PAYABLE', 'Ø±ÙØ§ØªØ¨ ÙØ³ØªØ­ÙØ©' FROM dual UNION ALL SELECT 'DEDUCTIONS', 'Ø®ØµÙÙØ§Øª Ø§ÙÙÙØ¸ÙÙÙ' FROM dual)";
+my $roles    = "SELECT 'مدير النظام' d, 'ADMIN' r FROM dual UNION ALL SELECT 'مدخل', 'ENTRY' FROM dual UNION ALL SELECT 'مراجع', 'REVIEWER' FROM dual UNION ALL SELECT 'معتمد', 'APPROVER' FROM dual";
+my $settings = "SELECT code || ' - ' || n d, code r FROM (SELECT 'SALES' code, 'مبيعات للشركات' n FROM dual UNION ALL SELECT 'SALES_RETURN', 'مردودات المبيعات' FROM dual UNION ALL SELECT 'INTERCO_AP', 'مستحق للشركة الأم' FROM dual UNION ALL SELECT 'PURCHASES', 'وارد من الأم (مخزون)' FROM dual UNION ALL SELECT 'INVENTORY', 'المخزون' FROM dual UNION ALL SELECT 'COGS', 'تكلفة المبيعات' FROM dual UNION ALL SELECT 'INVENTORY_ADJ', 'فروقات الجرد' FROM dual UNION ALL SELECT 'POS_SALES', 'مبيعات نقاط البيع' FROM dual UNION ALL SELECT 'CASH_DIFF', 'عجز وزيادة الخزائن' FROM dual UNION ALL SELECT 'SALARY_EXP', 'مصروف الرواتب' FROM dual UNION ALL SELECT 'INCENTIVE_EXP', 'مصروف الحوافز' FROM dual UNION ALL SELECT 'SALARY_DIFF', 'فروقات الرواتب' FROM dual UNION ALL SELECT 'SALARY_PAYABLE', 'رواتب مستحقة' FROM dual UNION ALL SELECT 'DEDUCTIONS', 'خصومات الموظفين' FROM dual UNION ALL SELECT 'CHEQUES_IN', 'Ø´ÙÙØ§Øª ØªØ­Øª Ø§ÙØªØ­ØµÙÙ' FROM dual UNION ALL SELECT 'CHEQUES_OUT', 'Ø´ÙÙØ§Øª ØªØ­Øª Ø§ÙØµØ±Ù' FROM dual)";
 
-crud(list => 204, form => 205, title => 'Ø§ÙØ³ÙÙØ§Øª Ø§ÙÙØ§ÙÙØ©', table => 'fiscal_years', alias => 'FISCAL', auth => 'IS_GM', order => 't.fy_year DESC', cols => [
-  ['FY_YEAR', 'Ø§ÙØ³ÙØ©', 'num', undef, 1], ['START_DATE', 'Ø§ÙØ¨Ø¯Ø§ÙØ©', 'date', undef, 1], ['END_DATE', 'Ø§ÙÙÙØ§ÙØ©', 'date', undef, 1],
-  ['IS_CLOSED', 'ÙØºÙÙØ©', 'select', $yn, 1]]);
+crud(list => 204, form => 205, title => 'السنوات المالية', table => 'fiscal_years', alias => 'FISCAL', auth => 'IS_GM', order => 't.fy_year DESC', cols => [
+  ['FY_YEAR', 'السنة', 'num', undef, 1], ['START_DATE', 'البداية', 'date', undef, 1], ['END_DATE', 'النهاية', 'date', undef, 1],
+  ['IS_CLOSED', 'مغلقة', 'select', $yn, 1]]);
 
-crud(list => 206, form => 207, title => 'Ø§ÙÙØ³ØªØ®Ø¯ÙÙÙ', table => 'app_users', alias => 'USERS', auth => 'IS_GM', order => 't.user_name', cols => [
-  ['USER_NAME', 'Ø§Ø³Ù Ø§ÙØ¯Ø®ÙÙ (Ø¨Ø£Ø­Ø±Ù ÙØ¨ÙØ±Ø©)', 'text', undef, 1], ['FULL_NAME', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1],
-  ['USER_ROLE', 'Ø§ÙØ¯ÙØ±', 'select', $roles, 1],
-  ['IS_ACTIVE', 'ÙØ¹ÙØ§Ù', 'select', $yn, 1]],
-  # ÙÙÙØ© Ø§ÙÙØ±ÙØ±: Ø­ÙÙ Ø®Ø§Ø±Ø¬ Ø§ÙØ¬Ø¯ÙÙØ ØªÙØ­ÙØ¸ ÙÙØ¬Ø²ÙØ£Ø© (SHA256) Ø¨Ø¹Ø¯ Ø§ÙØ­ÙØ¸
+crud(list => 206, form => 207, title => 'المستخدمون', table => 'app_users', alias => 'USERS', auth => 'IS_GM', order => 't.user_name', cols => [
+  ['USER_NAME', 'اسم الدخول (بأحرف كبيرة)', 'text', undef, 1], ['FULL_NAME', 'الاسم', 'text', undef, 1],
+  ['USER_ROLE', 'الدور', 'select', $roles, 1],
+  ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]],
+  # كلمة المرور: حقل خارج الجدول، تُحفظ مُجزّأة (SHA256) بعد الحفظ
   extra => sub {
     my $F = shift;
     item(name => "P${F}_NEW_PASSWORD", region => 'form', type => 'password', seq => 200,
-         label => 'ÙÙÙØ© Ø§ÙÙØ±ÙØ± (Ø§ØªØ±ÙÙØ§ ÙØ§Ø±ØºØ© ÙØ¹Ø¯Ù Ø§ÙØªØºÙÙØ±)');
+         label => 'كلمة المرور (اتركها فارغة لعدم التغيير)');
     item(name => "P${F}_CONFIRM_PASSWORD", region => 'form', type => 'password', seq => 210, same_line => 1,
-         label => 'ØªØ£ÙÙØ¯ ÙÙÙØ© Ø§ÙÙØ±ÙØ±');
+         label => 'تأكيد كلمة المرور');
     process(name => 'CHECK_PASSWORD', seq => 1, when_req => 'CREATE,SAVE', code => <<"SQL");
 DECLARE l_err VARCHAR2(200);
 BEGIN
   l_err := CASE
-  WHEN :P${F}_ROWID IS NULL AND :P${F}_NEW_PASSWORD IS NULL THEN 'Ø£Ø¯Ø®Ù ÙÙÙØ© Ø§ÙÙØ±ÙØ± ÙÙÙØ³ØªØ®Ø¯Ù Ø§ÙØ¬Ø¯ÙØ¯'
-  WHEN :P${F}_NEW_PASSWORD IS NOT NULL AND LENGTH(:P${F}_NEW_PASSWORD) < 6 THEN 'ÙÙÙØ© Ø§ÙÙØ±ÙØ± 6 Ø£Ø­Ø±Ù Ø¹ÙÙ Ø§ÙØ£ÙÙ'
-  WHEN NVL(:P${F}_NEW_PASSWORD, '#') <> NVL(:P${F}_CONFIRM_PASSWORD, '#') THEN 'ÙÙÙØ© Ø§ÙÙØ±ÙØ± ÙØªØ£ÙÙØ¯ÙØ§ ØºÙØ± ÙØªØ·Ø§Ø¨ÙÙÙ'
+  WHEN :P${F}_ROWID IS NULL AND :P${F}_NEW_PASSWORD IS NULL THEN 'أدخل كلمة المرور للمستخدم الجديد'
+  WHEN :P${F}_NEW_PASSWORD IS NOT NULL AND LENGTH(:P${F}_NEW_PASSWORD) < 6 THEN 'كلمة المرور 6 أحرف على الأقل'
+  WHEN NVL(:P${F}_NEW_PASSWORD, '#') <> NVL(:P${F}_CONFIRM_PASSWORD, '#') THEN 'كلمة المرور وتأكيدها غير متطابقين'
   END;
   IF l_err IS NOT NULL THEN raise_application_error(-20001, l_err); END IF;
 END;
@@ -127,62 +127,62 @@ END;
 SQL
   });
 
-crud(list => 208, form => 209, title => 'Ø§ÙØ­Ø³Ø§Ø¨Ø§Øª Ø§ÙØ§ÙØªØ±Ø§Ø¶ÙØ©', table => 'account_settings', alias => 'ACC-SETTINGS', auth => 'IS_GM', order => 't.setting_code', where => 't.company_id = :G_PARENT_ID', cols => [
-  ['SETTING_CODE', 'Ø§ÙØ¥Ø¹Ø¯Ø§Ø¯', 'select', $settings, 1],
-  ['ACCOUNT_ID', 'Ø§ÙØ­Ø³Ø§Ø¨', 'popup', $LOV{accounts4}, 1, 'NUMBER']]);
+crud(list => 208, form => 209, title => 'الحسابات الافتراضية', table => 'account_settings', alias => 'ACC-SETTINGS', auth => 'IS_GM', order => 't.setting_code', where => 't.company_id = :G_PARENT_ID', cols => [
+  ['SETTING_CODE', 'الإعداد', 'select', $settings, 1],
+  ['ACCOUNT_ID', 'الحساب', 'popup', $LOV{accounts4}, 1, 'NUMBER']]);
 
-crud(list => 212, form => 213, title => 'Ø§ÙÙØ­Ø¯Ø§Øª', table => 'units', alias => 'UNITS', auth => 'IS_STORE', order => 't.name_ar', cols => [
-  ['NAME_AR', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1], ['NAME_EN', 'Ø§ÙØ§Ø³Ù Ø§ÙØ¥ÙØ¬ÙÙØ²Ù']]);
+crud(list => 212, form => 213, title => 'الوحدات', table => 'units', alias => 'UNITS', auth => 'IS_STORE', order => 't.name_ar', cols => [
+  ['NAME_AR', 'الاسم', 'text', undef, 1], ['NAME_EN', 'الاسم الإنجليزي']]);
 
-crud(list => 210, form => 211, title => 'Ø§ÙØ£ØµÙØ§Ù ÙØ£Ø³Ø¹Ø§Ø±ÙØ§', table => 'items', alias => 'ITEMS', auth => 'IS_STORE', order => 't.item_code', cols => [
-  ['ITEM_CODE', 'Ø§ÙÙÙØ¯', 'text', undef, 1], ['NAME_AR', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1], ['NAME_EN', 'Ø§ÙØ§Ø³Ù Ø§ÙØ¥ÙØ¬ÙÙØ²Ù'],
-  ['BASE_UNIT_ID', 'Ø§ÙÙØ­Ø¯Ø© Ø§ÙØ£Ø³Ø§Ø³ÙØ©', 'select', $units, 1, 'NUMBER'], ['BARCODE', 'Ø§ÙØ¨Ø§Ø±ÙÙØ¯'],
-  ['PURCHASE_PRICE', 'Ø³Ø¹Ø± Ø§ÙØ´Ø±Ø§Ø¡ (ÙÙÙØ­Ø¯Ø© Ø§ÙØ£Ø³Ø§Ø³ÙØ©)', 'num'], ['SALE_PRICE', 'Ø³Ø¹Ø± Ø§ÙØ¨ÙØ¹ (ÙÙÙØ­Ø¯Ø© Ø§ÙØ£Ø³Ø§Ø³ÙØ©)', 'num'],
-  ['REORDER_LEVEL', 'Ø­Ø¯ Ø§ÙØ·ÙØ¨', 'num'], ['IS_ACTIVE', 'ÙØ¹ÙØ§Ù', 'select', $yn, 1]]);
+crud(list => 210, form => 211, title => 'الأصناف وأسعارها', table => 'items', alias => 'ITEMS', auth => 'IS_STORE', order => 't.item_code', cols => [
+  ['ITEM_CODE', 'الكود', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1], ['NAME_EN', 'الاسم الإنجليزي'],
+  ['BASE_UNIT_ID', 'الوحدة الأساسية', 'select', $units, 1, 'NUMBER'], ['BARCODE', 'الباركود'],
+  ['PURCHASE_PRICE', 'سعر الشراء (للوحدة الأساسية)', 'num'], ['SALE_PRICE', 'سعر البيع (للوحدة الأساسية)', 'num'],
+  ['REORDER_LEVEL', 'حد الطلب', 'num'], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]]);
 
-crud(list => 236, form => 237, title => 'ÙØ­Ø¯Ø§Øª Ø§ÙØ£ØµÙØ§Ù', table => 'item_units', alias => 'ITEM-UNITS', auth => 'IS_STORE', order => 't.item_id, t.factor', cols => [
-  ['ITEM_ID', 'Ø§ÙØµÙÙ', 'popup', $items, 1, 'NUMBER'], ['UNIT_ID', 'Ø§ÙÙØ­Ø¯Ø©', 'select', $units, 1, 'NUMBER'],
-  ['FACTOR', 'Ø¹Ø¯Ø¯ Ø§ÙÙØ­Ø¯Ø§Øª Ø§ÙØ£Ø³Ø§Ø³ÙØ©', 'num', undef, 1], ['BARCODE', 'Ø§ÙØ¨Ø§Ø±ÙÙØ¯']]);
+crud(list => 236, form => 237, title => 'وحدات الأصناف', table => 'item_units', alias => 'ITEM-UNITS', auth => 'IS_STORE', order => 't.item_id, t.factor', cols => [
+  ['ITEM_ID', 'الصنف', 'popup', $items, 1, 'NUMBER'], ['UNIT_ID', 'الوحدة', 'select', $units, 1, 'NUMBER'],
+  ['FACTOR', 'عدد الوحدات الأساسية', 'num', undef, 1], ['BARCODE', 'الباركود']]);
 
-crud(list => 214, form => 215, title => 'ÙÙØ§Ø¦Ù Ø§ÙØ£Ø³Ø¹Ø§Ø±', table => 'price_lists', alias => 'PRICE-LISTS', auth => 'IS_GM', order => 't.name_ar', cols => [
-  ['NAME_AR', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1], ['IS_ACTIVE', 'ÙØ¹ÙØ§Ù', 'select', $yn, 1]]);
+crud(list => 214, form => 215, title => 'قوائم الأسعار', table => 'price_lists', alias => 'PRICE-LISTS', auth => 'IS_GM', order => 't.name_ar', cols => [
+  ['NAME_AR', 'الاسم', 'text', undef, 1], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]]);
 
-crud(list => 234, form => 235, title => 'Ø£Ø³Ø¹Ø§Ø± Ø§ÙØ£ØµÙØ§Ù', table => 'price_list_items', alias => 'PRICES', auth => 'IS_GM', order => 't.price_list_id, t.item_id', cols => [
-  ['PRICE_LIST_ID', 'ÙØ§Ø¦ÙØ© Ø§ÙØ£Ø³Ø¹Ø§Ø±', 'select', $pls, 1, 'NUMBER'], ['ITEM_ID', 'Ø§ÙØµÙÙ', 'popup', $items, 1, 'NUMBER'],
-  ['UNIT_ID', 'Ø§ÙÙØ­Ø¯Ø©', 'select', $units, 1, 'NUMBER'], ['PRICE', 'Ø§ÙØ³Ø¹Ø±', 'num', undef, 1]]);
+crud(list => 234, form => 235, title => 'أسعار الأصناف', table => 'price_list_items', alias => 'PRICES', auth => 'IS_GM', order => 't.price_list_id, t.item_id', cols => [
+  ['PRICE_LIST_ID', 'قائمة الأسعار', 'select', $pls, 1, 'NUMBER'], ['ITEM_ID', 'الصنف', 'popup', $items, 1, 'NUMBER'],
+  ['UNIT_ID', 'الوحدة', 'select', $units, 1, 'NUMBER'], ['PRICE', 'السعر', 'num', undef, 1]]);
 
-crud(list => 216, form => 217, title => 'Ø§ÙÙØ®Ø§Ø²Ù', table => 'warehouses', alias => 'WAREHOUSES', auth => 'IS_STORE', order => 't.company_id', cols => [
-  ['NAME_AR', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1], ['IS_ACTIVE', 'ÙØ¹ÙØ§Ù', 'select', $yn, 1]]);
+crud(list => 216, form => 217, title => 'المخازن', table => 'warehouses', alias => 'WAREHOUSES', auth => 'IS_STORE', order => 't.company_id', cols => [
+  ['NAME_AR', 'الاسم', 'text', undef, 1], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]]);
 
-crud(list => 220, form => 221, title => 'Ø§ÙØ¯Ø±Ø¬Ø§Øª Ø§ÙÙØ¸ÙÙÙØ©', table => 'job_grades', alias => 'GRADES', auth => 'IS_HR', order => 't.grade_code', cols => [
-  ['GRADE_CODE', 'Ø§ÙØ±ÙØ²', 'text', undef, 1], ['NAME_AR', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1], ['BASIC_SALARY', 'Ø§ÙØ±Ø§ØªØ¨ Ø§ÙØ£Ø³Ø§Ø³Ù', 'num', undef, 1]]);
+crud(list => 220, form => 221, title => 'الدرجات الوظيفية', table => 'job_grades', alias => 'GRADES', auth => 'IS_HR', order => 't.grade_code', cols => [
+  ['GRADE_CODE', 'الرمز', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1], ['BASIC_SALARY', 'الراتب الأساسي', 'num', undef, 1]]);
 
-crud(list => 222, form => 223, title => 'Ø§ÙÙÙØ¸ÙÙÙ', table => 'employees', alias => 'EMPLOYEES', auth => 'IS_HR', order => 't.emp_no', cols => [
-  ['EMP_NO', 'Ø§ÙØ±ÙÙ', 'text', undef, 1], ['NAME_AR', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1],
-  ['GRADE_ID', 'Ø§ÙØ¯Ø±Ø¬Ø©', 'select', $grades, 1, 'NUMBER'],
-  ['HIRE_DATE', 'ØªØ§Ø±ÙØ® Ø§ÙØªØ¹ÙÙÙ', 'date'], ['BASIC_SALARY', 'Ø£Ø³Ø§Ø³Ù Ø®Ø§Øµ (ÙØ§Ø±Øº = Ø£Ø³Ø§Ø³Ù Ø§ÙØ¯Ø±Ø¬Ø©)', 'num'],
-  ['BANK_ACCOUNT', 'Ø§ÙØ­Ø³Ø§Ø¨ Ø§ÙØ¨ÙÙÙ'], ['IS_ACTIVE', 'ÙØ¹ÙØ§Ù', 'select', $yn, 1]]);
+crud(list => 222, form => 223, title => 'الموظفون', table => 'employees', alias => 'EMPLOYEES', auth => 'IS_HR', order => 't.emp_no', cols => [
+  ['EMP_NO', 'الرقم', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1],
+  ['GRADE_ID', 'الدرجة', 'select', $grades, 1, 'NUMBER'],
+  ['HIRE_DATE', 'تاريخ التعيين', 'date'], ['BASIC_SALARY', 'أساسي خاص (فارغ = أساسي الدرجة)', 'num'],
+  ['BANK_ACCOUNT', 'الحساب البنكي'], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]]);
 
-crud(list => 224, form => 225, title => 'Ø¨ÙÙØ¯ Ø§ÙØ¹ÙØ§ÙØ§Øª ÙØ§ÙØ­ÙØ§ÙØ² ÙØ§ÙØ®ØµÙÙØ§Øª', table => 'allowance_types', alias => 'ALLOWANCES', auth => 'IS_HR', order => 't.code', cols => [
-  ['CODE', 'Ø§ÙØ±ÙØ²', 'text', undef, 1], ['NAME_AR', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1],
-  ['KIND', 'Ø§ÙÙÙØ¹', 'select', "SELECT 'Ø¹ÙØ§ÙØ©' d, 'ALLOWANCE' r FROM dual UNION ALL SELECT 'Ø­Ø§ÙØ²', 'INCENTIVE' FROM dual UNION ALL SELECT 'Ø®ØµÙ', 'DEDUCTION' FROM dual", 1],
-  ['CALC_METHOD', 'Ø·Ø±ÙÙØ© Ø§ÙØ­Ø³Ø§Ø¨', 'select', "SELECT 'ÙØ¨ÙØº Ø«Ø§Ø¨Øª' d, 'FIXED' r FROM dual UNION ALL SELECT 'ÙØ³Ø¨Ø© ÙÙ Ø§ÙØ£Ø³Ø§Ø³Ù', 'PERCENT' FROM dual", 1],
-  ['ACCOUNT_ID', 'Ø§ÙØ­Ø³Ø§Ø¨ (Ø§Ø®ØªÙØ§Ø±Ù)', 'popup', $LOV{accounts4}, undef, 'NUMBER']]);
+crud(list => 224, form => 225, title => 'بنود العلاوات والحوافز والخصومات', table => 'allowance_types', alias => 'ALLOWANCES', auth => 'IS_HR', order => 't.code', cols => [
+  ['CODE', 'الرمز', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1],
+  ['KIND', 'النوع', 'select', "SELECT 'علاوة' d, 'ALLOWANCE' r FROM dual UNION ALL SELECT 'حافز', 'INCENTIVE' FROM dual UNION ALL SELECT 'خصم', 'DEDUCTION' FROM dual", 1],
+  ['CALC_METHOD', 'طريقة الحساب', 'select', "SELECT 'مبلغ ثابت' d, 'FIXED' r FROM dual UNION ALL SELECT 'نسبة من الأساسي', 'PERCENT' FROM dual", 1],
+  ['ACCOUNT_ID', 'الحساب (اختياري)', 'popup', $LOV{accounts4}, undef, 'NUMBER']]);
 
-crud(list => 226, form => 227, title => 'Ø¹ÙØ§ÙØ§Øª Ø§ÙØ¯Ø±Ø¬Ø§Øª', table => 'grade_allowances', alias => 'GRADE-ALLOW', auth => 'IS_HR', order => 't.grade_id', cols => [
-  ['GRADE_ID', 'Ø§ÙØ¯Ø±Ø¬Ø©', 'select', $grades, 1, 'NUMBER'], ['ALLOWANCE_ID', 'Ø§ÙØ¨ÙØ¯', 'select', $allows, 1, 'NUMBER'], ['VALUE', 'Ø§ÙÙÙÙØ©', 'num', undef, 1]]);
+crud(list => 226, form => 227, title => 'علاوات الدرجات', table => 'grade_allowances', alias => 'GRADE-ALLOW', auth => 'IS_HR', order => 't.grade_id', cols => [
+  ['GRADE_ID', 'الدرجة', 'select', $grades, 1, 'NUMBER'], ['ALLOWANCE_ID', 'البند', 'select', $allows, 1, 'NUMBER'], ['VALUE', 'القيمة', 'num', undef, 1]]);
 
-crud(list => 228, form => 229, title => 'Ø¹ÙØ§ÙØ§Øª Ø§ÙÙÙØ¸ÙÙÙ Ø§ÙØ®Ø§ØµØ©', table => 'emp_allowances', alias => 'EMP-ALLOW', auth => 'IS_HR', order => 't.employee_id', cols => [
-  ['EMPLOYEE_ID', 'Ø§ÙÙÙØ¸Ù', 'popup', $emps, 1, 'NUMBER'], ['ALLOWANCE_ID', 'Ø§ÙØ¨ÙØ¯', 'select', $allows, 1, 'NUMBER'],
-  ['VALUE', 'Ø§ÙÙÙÙØ©', 'num', undef, 1], ['FROM_DATE', 'ÙÙ ØªØ§Ø±ÙØ®', 'date'], ['TO_DATE', 'Ø¥ÙÙ ØªØ§Ø±ÙØ®', 'date']]);
+crud(list => 228, form => 229, title => 'علاوات الموظفين الخاصة', table => 'emp_allowances', alias => 'EMP-ALLOW', auth => 'IS_HR', order => 't.employee_id', cols => [
+  ['EMPLOYEE_ID', 'الموظف', 'popup', $emps, 1, 'NUMBER'], ['ALLOWANCE_ID', 'البند', 'select', $allows, 1, 'NUMBER'],
+  ['VALUE', 'القيمة', 'num', undef, 1], ['FROM_DATE', 'من تاريخ', 'date'], ['TO_DATE', 'إلى تاريخ', 'date']]);
 
-crud(list => 20, form => 21, title => 'Ø£ÙÙØ§Ø¹ Ø§ÙÙÙÙØ¯', table => 'journal_types', alias => 'JOURNAL-TYPES', auth => 'IS_ACCOUNTANT', order => 't.sort_order', cols => [
-  ['JT_CODE', 'Ø§ÙØ±ÙØ²', 'text', undef, 1], ['NAME_AR', 'Ø§ÙØ§Ø³Ù', 'text', undef, 1], ['NAME_EN', 'Ø§ÙØ§Ø³Ù Ø§ÙØ¥ÙØ¬ÙÙØ²Ù'],
-  ['PREFIX', 'Ø§ÙØ¨Ø§Ø¯Ø¦Ø©', 'text', undef, 1], ['MANUAL_ALLOWED', 'ÙÙØ¯Ø®Ù ÙØ¯ÙÙØ§Ù', 'select', $yn, 1],
-  ['IS_ACTIVE', 'ÙØ¹ÙØ§Ù', 'select', $yn, 1], ['SORT_ORDER', 'Ø§ÙØªØ±ØªÙØ¨', 'num']]);
+crud(list => 20, form => 21, title => 'أنواع القيود', table => 'journal_types', alias => 'JOURNAL-TYPES', auth => 'IS_ACCOUNTANT', order => 't.sort_order', cols => [
+  ['JT_CODE', 'الرمز', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1], ['NAME_EN', 'الاسم الإنجليزي'],
+  ['PREFIX', 'البادئة', 'text', undef, 1], ['MANUAL_ALLOWED', 'يُدخل يدوياً', 'select', $yn, 1],
+  ['IS_ACTIVE', 'فعّال', 'select', $yn, 1], ['SORT_ORDER', 'الترتيب', 'num']]);
 
 # =====================================================================
-# 10 Ø´Ø¬Ø±Ø© Ø§ÙØ­Ø³Ø§Ø¨Ø§Øª
+# 10 شجرة الحسابات
 # =====================================================================
 my $tree = <<'PLSQL';
 DECLARE
@@ -238,36 +238,36 @@ apex.jQuery('#P10_PARENT_ID').on('change', function () {
 });
 JS
 
-page(id => 10, name => 'Ø´Ø¬Ø±Ø© Ø§ÙØ­Ø³Ø§Ø¨Ø§Øª', alias => 'ACCOUNTS', auth => 'IS_ACCOUNTANT', onload => $acc_js, css => <<'CSS');
+page(id => 10, name => 'شجرة الحسابات', alias => 'ACCOUNTS', auth => 'IS_ACCOUNTANT', onload => $acc_js, css => <<'CSS');
 .acc-tree, .acc-tree ul { list-style: none; margin: 0; padding-inline-start: 18px; }
 .acc-tree > li { margin: 2px 0; }
 .acc-tree summary { cursor: pointer; }
 .acc-tree a { text-decoration: none; padding: 2px 4px; border-radius: 3px; display: inline-block; }
 .acc-tree a.sel { background: var(--ut-palette-primary, #0572ce); color: #fff; }
 CSS
-region(name => 'tree', title => 'Ø´Ø¬Ø±Ø© Ø§ÙØ­Ø³Ø§Ø¨Ø§Øª', type => 'plsql', plsql => $tree, seq => 10, span => 5);
-region(name => 'form', title => 'Ø¨ÙØ§ÙØ§Øª Ø§ÙØ­Ø³Ø§Ø¨', type => 'static', seq => 20, span => 7, same_row => 1,
-       html => '<div style="margin-bottom:8px">Ø§ÙÙØ³ØªÙÙ: <b id="acc_level">&P10_ACC_LEVEL.</b> (Ø§ÙØ­Ø³Ø§Ø¨ Ø§ÙØªØ­ÙÙÙÙ ÙÙ Ø§ÙÙØ³ØªÙÙ 4 ÙÙØ· ÙÙØ¨Ù Ø§ÙÙÙÙØ¯)</div>');
+region(name => 'tree', title => 'شجرة الحسابات', type => 'plsql', plsql => $tree, seq => 10, span => 5);
+region(name => 'form', title => 'بيانات الحساب', type => 'static', seq => 20, span => 7, same_row => 1,
+       html => '<div style="margin-bottom:8px">المستوى: <b id="acc_level">&P10_ACC_LEVEL.</b> (الحساب التحليلي في المستوى 4 فقط يقبل القيود)</div>');
 item(name => 'P10_ACCOUNT_ID', region => 'form', type => 'hidden', seq => 1);
 item(name => 'P10_ACC_LEVEL', region => 'form', type => 'hidden', seq => 2);
-item(name => 'P10_PARENT_ID', region => 'form', type => 'popup', label => 'Ø§ÙØ­Ø³Ø§Ø¨ Ø§ÙØ£Ø¨ (ÙØ§Ø±Øº = Ø­Ø³Ø§Ø¨ Ø±Ø¦ÙØ³Ù)', seq => 10,
+item(name => 'P10_PARENT_ID', region => 'form', type => 'popup', label => 'الحساب الأب (فارغ = حساب رئيسي)', seq => 10,
      lov => "SELECT LPAD(' ', (acc_level - 1) * 3) || account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE acc_level < 4 ORDER BY account_code");
-item(name => 'P10_ACCOUNT_CODE', region => 'form', label => 'Ø±ÙÙ Ø§ÙØ­Ø³Ø§Ø¨', seq => 20, required => 1);
-item(name => 'P10_NAME_AR', region => 'form', label => 'Ø§ÙØ§Ø³Ù', seq => 30, same_line => 1, required => 1);
-item(name => 'P10_NAME_EN', region => 'form', label => 'Ø§ÙØ§Ø³Ù Ø§ÙØ¥ÙØ¬ÙÙØ²Ù', seq => 40);
-item(name => 'P10_ACC_TYPE', region => 'form', type => 'select', label => 'Ø§ÙÙÙØ¹', seq => 50, same_line => 1, required => 1,
-     lov => "SELECT 'Ø£ØµÙÙ' d, 'ASSET' r FROM dual UNION ALL SELECT 'Ø®ØµÙÙ', 'LIAB' FROM dual UNION ALL SELECT 'Ø­ÙÙÙ ÙÙÙÙØ©', 'EQUITY' FROM dual UNION ALL SELECT 'Ø¥ÙØ±Ø§Ø¯Ø§Øª', 'REV' FROM dual UNION ALL SELECT 'ÙØµØ±ÙÙØ§Øª', 'EXP' FROM dual");
-item(name => 'P10_NATURE', region => 'form', type => 'select', label => 'Ø§ÙØ·Ø¨ÙØ¹Ø©', seq => 60, required => 1,
-     lov => "SELECT 'ÙØ¯ÙÙ' d, 'D' r FROM dual UNION ALL SELECT 'Ø¯Ø§Ø¦Ù', 'C' FROM dual");
-item(name => 'P10_CASH_BANK', region => 'form', type => 'select', label => 'ØµÙØ¯ÙÙ / Ø¨ÙÙ (Ø§ÙÙØ³ØªÙÙ 4 ÙÙØ·)', seq => 70, same_line => 1,
-     lov => "SELECT 'ÙØ§' d, 'N' r FROM dual UNION ALL SELECT 'ØµÙØ¯ÙÙ', 'C' FROM dual UNION ALL SELECT 'Ø¨ÙÙ', 'B' FROM dual");
-item(name => 'P10_CURRENCY_CODE', region => 'form', type => 'select', label => 'Ø¹ÙÙØ© Ø§ÙØ­Ø³Ø§Ø¨', lov => $LOV{currencies}, null => 'Ø£Ù Ø¹ÙÙØ©', seq => 80);
-item(name => 'P10_COMPANY_ID', region => 'form', type => 'select', label => 'Ø§ÙØ´Ø±ÙØ©', lov => $LOV{all_companies}, null => 'ÙØ´ØªØ±Ù ÙÙÙ Ø§ÙØ´Ø±ÙØ§Øª', seq => 90, same_line => 1);
-item(name => 'P10_IS_ACTIVE', region => 'form', type => 'select', label => 'ÙØ¹ÙØ§Ù', lov => $yn, seq => 100);
-button(name => 'SAVE', region => 'form', label => 'Ø­ÙØ¸', hot => 1, seq => 10);
-button(name => 'DELETE', region => 'form', label => 'Ø­Ø°Ù', position => 'PREVIOUS', seq => 20, if_not_null => 'P10_ACCOUNT_ID', novalidate => 1, confirm => 'Ø­Ø°Ù Ø§ÙØ­Ø³Ø§Ø¨Ø');
-button(name => 'NEW', region => 'form', label => 'Ø¬Ø¯ÙØ¯', position => 'PREVIOUS', seq => 30, url => 'f?p=&APP_ID.:10:&SESSION.::&DEBUG.:10::');
-button(name => 'CHILD', region => 'form', label => 'Ø­Ø³Ø§Ø¨ ÙØ±Ø¹Ù', position => 'PREVIOUS', seq => 40,
+item(name => 'P10_ACCOUNT_CODE', region => 'form', label => 'رقم الحساب', seq => 20, required => 1);
+item(name => 'P10_NAME_AR', region => 'form', label => 'الاسم', seq => 30, same_line => 1, required => 1);
+item(name => 'P10_NAME_EN', region => 'form', label => 'الاسم الإنجليزي', seq => 40);
+item(name => 'P10_ACC_TYPE', region => 'form', type => 'select', label => 'النوع', seq => 50, same_line => 1, required => 1,
+     lov => "SELECT 'أصول' d, 'ASSET' r FROM dual UNION ALL SELECT 'خصوم', 'LIAB' FROM dual UNION ALL SELECT 'حقوق ملكية', 'EQUITY' FROM dual UNION ALL SELECT 'إيرادات', 'REV' FROM dual UNION ALL SELECT 'مصروفات', 'EXP' FROM dual");
+item(name => 'P10_NATURE', region => 'form', type => 'select', label => 'الطبيعة', seq => 60, required => 1,
+     lov => "SELECT 'مدين' d, 'D' r FROM dual UNION ALL SELECT 'دائن', 'C' FROM dual");
+item(name => 'P10_CASH_BANK', region => 'form', type => 'select', label => 'خزينة / بنك (المستوى 4 فقط)', seq => 70, same_line => 1,
+     lov => "SELECT 'لا' d, 'N' r FROM dual UNION ALL SELECT 'خزينة', 'C' FROM dual UNION ALL SELECT 'بنك', 'B' FROM dual");
+item(name => 'P10_CURRENCY_CODE', region => 'form', type => 'select', label => 'عملة الحساب', lov => $LOV{currencies}, null => 'أي عملة', seq => 80);
+item(name => 'P10_COMPANY_ID', region => 'form', type => 'select', label => 'الشركة', lov => $LOV{all_companies}, null => 'مشترك لكل الشركات', seq => 90, same_line => 1);
+item(name => 'P10_IS_ACTIVE', region => 'form', type => 'select', label => 'فعّال', lov => $yn, seq => 100);
+button(name => 'SAVE', region => 'form', label => 'حفظ', hot => 1, seq => 10);
+button(name => 'DELETE', region => 'form', label => 'حذف', position => 'PREVIOUS', seq => 20, if_not_null => 'P10_ACCOUNT_ID', novalidate => 1, confirm => 'حذف الحساب؟');
+button(name => 'NEW', region => 'form', label => 'جديد', position => 'PREVIOUS', seq => 30, url => 'f?p=&APP_ID.:10:&SESSION.::&DEBUG.:10::');
+button(name => 'CHILD', region => 'form', label => 'حساب فرعي', position => 'PREVIOUS', seq => 40,
        url => 'f?p=&APP_ID.:10:&SESSION.::&DEBUG.:10:P10_PARENT_ID:&P10_ACCOUNT_ID.', cond => ':P10_ACCOUNT_ID IS NOT NULL AND :P10_ACC_LEVEL < 4');
 process(name => 'LOAD', point => 'BEFORE_HEADER', seq => 10, cond => ':P10_ACCOUNT_ID IS NOT NULL', code => <<'SQL');
 DECLARE a accounts%ROWTYPE;
@@ -298,7 +298,7 @@ check(name => 'CHECK_CODE',   seq => 20, button => 'SAVE', code => src('p10_val2
 check(name => 'CHECK_MOVES',  seq => 30, button => 'SAVE', code => src('p10_val3.sql'));
 check(name => 'CHECK_MOVE_PARENT', seq => 40, button => 'SAVE', code => src('p10_val5.sql'));
 check(name => 'CHECK_DELETE', seq => 50, button => 'DELETE', code => src('p10_val4.sql'));
-process(name => 'SAVE_ACCOUNT', seq => 60, button => 'SAVE', success => 'ØªÙ Ø­ÙØ¸ Ø§ÙØ­Ø³Ø§Ø¨', code => <<'SQL');
+process(name => 'SAVE_ACCOUNT', seq => 60, button => 'SAVE', success => 'تم حفظ الحساب', code => <<'SQL');
 DECLARE
   l_lvl NUMBER := 1;
 BEGIN
@@ -323,7 +323,7 @@ BEGIN
   END IF;
 END;
 SQL
-process(name => 'DELETE_ACCOUNT', seq => 70, button => 'DELETE', success => 'ØªÙ Ø­Ø°Ù Ø§ÙØ­Ø³Ø§Ø¨', code => <<'SQL');
+process(name => 'DELETE_ACCOUNT', seq => 70, button => 'DELETE', success => 'تم حذف الحساب', code => <<'SQL');
 BEGIN
   IF apex_error.have_errors_occurred THEN RETURN; END IF;
   DELETE FROM accounts WHERE account_id = :P10_ACCOUNT_ID;
@@ -338,7 +338,7 @@ SELECT a.account_id,
        p.account_code || ' - ' || p.name_ar AS "الحساب الأب (مستوى 3)",
        DECODE(a.acc_type,'ASSET','أصول','LIAB','خصوم','EQUITY','حقوق ملكية','REV','إيرادات','EXP','مصروفات') AS "النوع",
        DECODE(a.nature,'D','مدين','دائن') AS "الطبيعة",
-       DECODE(a.cash_bank,'C','صندوق','B','بنك') AS "صندوق / بنك",
+       DECODE(a.cash_bank,'C','خزينة','B','بنك') AS "خزينة / بنك",
        DECODE(a.is_active,'Y','فعّال','موقوف') AS "الحالة"
 FROM   accounts a
 JOIN   accounts p ON p.account_id = a.parent_id
@@ -436,5 +436,17 @@ END;
 SQL
 branch_self();
 end_page();
+
+# مقاسات ومواضع طباعة الشيك لكل بنك (بالمليمتر من أعلى ويمين الشيك) - الصف بدون بنك هو المقاس الافتراضي
+crud(list => 240, form => 241, title => 'مقاسات طباعة الشيك', table => 'cheque_layouts', alias => 'CHEQUE-LAYOUTS', auth => 'IS_GM', order => 't.layout_name', cols => [
+  ['LAYOUT_NAME', 'الاسم', 'text', undef, 1],
+  ['BANK_ACCOUNT_ID', 'البنك (فارغ = الافتراضي)', 'select', "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE cash_bank = 'B' ORDER BY account_code", undef, 'NUMBER'],
+  ['WIDTH_MM', 'عرض الشيك (مم)', 'num', undef, 1], ['HEIGHT_MM', 'ارتفاع الشيك (مم)', 'num', undef, 1],
+  ['DATE_TOP', 'التاريخ: من الأعلى', 'num', undef, 1], ['DATE_RIGHT', 'التاريخ: من اليمين', 'num', undef, 1],
+  ['PAYEE_TOP', 'المستفيد: من الأعلى', 'num', undef, 1], ['PAYEE_RIGHT', 'المستفيد: من اليمين', 'num', undef, 1],
+  ['WORDS_TOP', 'المبلغ كتابة: من الأعلى', 'num', undef, 1], ['WORDS_RIGHT', 'المبلغ كتابة: من اليمين', 'num', undef, 1],
+  ['WORDS_WIDTH', 'عرض سطر المبلغ كتابة', 'num', undef, 1],
+  ['AMOUNT_TOP', 'المبلغ رقماً: من الأعلى', 'num', undef, 1], ['AMOUNT_RIGHT', 'المبلغ رقماً: من اليمين', 'num', undef, 1],
+  ['FONT_SIZE', 'حجم الخط (px)', 'num', undef, 1]]);
 
 1;

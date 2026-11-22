@@ -8,7 +8,7 @@ WITH mv AS (   -- الحركات المرحّلة بالعملة الأساسي�
   WHERE  j.status IN ('POSTED','REVERSED')
   AND    j.journal_date <= TO_DATE(:P80_TO,'DD/MM/YYYY')
   AND    (:P80_COMPANY_ID IS NULL OR j.company_id = :P80_COMPANY_ID)
-  AND    (:G_USER_ROLE = 'GM' OR j.company_id = :G_COMPANY_ID
+  AND    (:G_USER_ROLE = 'ADMIN' OR j.company_id = :G_COMPANY_ID
           OR j.company_id IN (SELECT company_id FROM user_companies WHERE user_name = UPPER(:APP_USER)))
   AND    (NVL(:P80_EXCLUDE_INTERCO,'N') = 'N' OR l.partner_company_id IS NULL)
 ),
