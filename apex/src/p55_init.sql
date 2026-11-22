@@ -17,10 +17,10 @@ BEGIN
                                    'v'      VALUE u.unit_id,
                                    't'      VALUE un.name_ar,
                                    'factor' VALUE u.factor,
-                                   'price'  VALUE (SELECT MAX(l.price) KEEP (DENSE_RANK LAST ORDER BY p.invoice_date, l.line_id)
+                                   'price'  VALUE COALESCE(NULLIF(i.purchase_price, 0) * u.factor, (SELECT MAX(l.price) KEEP (DENSE_RANK LAST ORDER BY p.invoice_date, l.line_id)
                                                    FROM purchase_invoice_lines l
                                                    JOIN purchase_invoices p ON p.pinv_id = l.pinv_id AND p.status = 'POSTED'
-                                                   WHERE l.item_id = u.item_id AND l.unit_id = u.unit_id))
+                                                   WHERE l.item_id = u.item_id AND l.unit_id = u.unit_id)))
                                  ORDER BY u.factor)
                           FROM item_units u JOIN units un ON un.unit_id = u.unit_id
                           WHERE u.item_id = i.item_id) FORMAT JSON

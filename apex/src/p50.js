@@ -55,6 +55,9 @@ var inv = {
     // طريقة الدفع: تتغير قائمة الحسابات فوراً
     DocUtil.payAccounts('P50_PAY_TYPE', 'P50_ACCOUNT_ID', 'SALE', true);
     apex.jQuery('#P50_PAY_TYPE').on('change', function () { DocUtil.payAccounts('P50_PAY_TYPE', 'P50_ACCOUNT_ID', 'SALE', false); });
+    // رقم الفاتورة الجديد يظهر فوراً ويتغير مع طريقة الدفع والتاريخ
+    var nx = function () { DocUtil.nextNo('SALE', 'P50_INVOICE_ID', 'P50_INVOICE_TYPE', 'P50_PAY_TYPE', 'P50_INVOICE_DATE'); };
+    nx(); apex.jQuery('#P50_PAY_TYPE, #P50_INVOICE_DATE').on('change', nx);
     EnterNav.first('#main');
   },
 

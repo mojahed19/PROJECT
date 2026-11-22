@@ -54,6 +54,8 @@ var pur = {
     // طريقة الدفع: تتغير قائمة الحسابات فوراً
     DocUtil.payAccounts('P55_PAY_TYPE', 'P55_SUPPLIER_ACCOUNT_ID', 'PURCHASE', true);
     apex.jQuery('#P55_PAY_TYPE').on('change', function () { DocUtil.payAccounts('P55_PAY_TYPE', 'P55_SUPPLIER_ACCOUNT_ID', 'PURCHASE', false); });
+    var nx = function () { DocUtil.nextNo('PURCHASE', 'P55_PINV_ID', 'P55_INVOICE_TYPE', 'P55_PAY_TYPE', 'P55_INVOICE_DATE'); };
+    nx(); apex.jQuery('#P55_PAY_TYPE, #P55_INVOICE_DATE').on('change', nx);
     EnterNav.first('#main');
   },
 

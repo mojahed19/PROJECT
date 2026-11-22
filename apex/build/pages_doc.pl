@@ -24,7 +24,7 @@ my $SAVE_KEYS = "if (apex.item('%s').getValue() && apex.item('%s').getValue() !=
 
 sub doc_status_html {
   my ($no_item, $status_item, $no_label) = @_;
-  return "<div class=\"doc-meta\" style=\"margin:4px 0 10px\">$no_label: <b>&$no_item.</b> &nbsp;&nbsp; الحالة: "
+  return "<div class=\"doc-meta\" style=\"margin:4px 0 10px\">$no_label: <b id=\"doc_no\">&$no_item.</b> &nbsp;&nbsp; الحالة: "
        . "<span class=\"doc-status doc-status--&$status_item.\">&$status_item.</span></div>";
 }
 
@@ -126,6 +126,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   ":P40_TITLE := CASE :P40_VOUCHER_TYPE WHEN 'R' THEN 'إذن توريد' ELSE 'إذن صرف' END;"));
 ajax('INIT_DATA', src('p40_init.sql'));
 ajax('SAVE_DOC',  src('p40_save.sql'));
+ajax('NEXT_NO', src('next_no.sql'));
 branch_self();
 end_page();
 
@@ -208,6 +209,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   ":P50_TITLE := CASE :P50_INVOICE_TYPE WHEN 'SALE' THEN 'فاتورة مبيعات' ELSE 'مرتجع مبيعات' END;"));
 ajax('INIT_DATA', src('p50_init.sql'));
 ajax('SAVE_DOC',  src('p50_save.sql'));
+ajax('NEXT_NO', src('next_no.sql'));
 ajax('PAY_ACCOUNTS', src('pay_accounts.sql'));
 branch_self();
 end_page();
@@ -285,6 +287,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   ":P55_TITLE := CASE :P55_INVOICE_TYPE WHEN 'PURCHASE' THEN 'فاتورة مشتريات' ELSE 'مرتجع مشتريات' END;"));
 ajax('INIT_DATA', src('p55_init.sql'));
 ajax('SAVE_DOC',  src('p55_save.sql'));
+ajax('NEXT_NO', src('next_no.sql'));
 ajax('PAY_ACCOUNTS', src('pay_accounts.sql'));
 branch_self();
 end_page();
@@ -352,7 +355,7 @@ for my $pp (['53', 'SALE', 'A4', 'P53_INVOICE_ID', 'طباعة فاتورة مب
        onload => 'setTimeout(function () { window.print(); }, 600);');
   region(name => 'brand', title => 'brand', type => 'static', no_header => 1, seq => 5, html => <<'HTML');
 <div class="no-print"><button type="button" class="t-Button t-Button--hot" onclick="window.print()">طباعة</button></div>
-<div class="inv-brand"><img src="#APP_FILES#logo.jpg" alt=""><div class="nm">&APP_NAME.</div><div class="ln"></div></div>
+<div class="inv-brand"><img src="#APP_FILES#logo.jpg" alt=""><div class="nm">&G_COMPANY_NAME.</div><div class="inf">&G_COMPANY_INFO.</div><div class="ln"></div></div>
 HTML
   item(name => $itm, region => 'brand', type => 'hidden');
   my $code = src('print_invoice.sql');
@@ -463,6 +466,7 @@ item(name => 'P80_LEVEL', region => 'f', type => 'select', label => 'المست�
 item(name => 'P80_EXCLUDE_INTERCO', region => 'f', type => 'select', label => 'استبعاد المعاملات البينية', lov => $LOV{yn}, seq => 50);
 item(name => 'P80_SEPARATE', region => 'f', type => 'select', label => 'كل شركة منفصلة', lov => $LOV{yn}, seq => 60, same_line => 1);
 button(name => 'GO', region => 'f', label => 'عرض', hot => 1);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => "apex.page.submit({request: 'PRINT', showWait: true});");
 region(name => 'ir', title => 'ميزان المراجعة', type => 'ir', sql => src('p80_ir.sql'), seq => 10);
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
   "IF :P80_FROM IS NULL THEN :P80_FROM := TO_CHAR(TRUNC(SYSDATE,'YYYY'), 'DD/MM/YYYY'); END IF;",
@@ -470,7 +474,24 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
   "IF :P80_LEVEL IS NULL THEN :P80_LEVEL := 4; END IF;",
   "IF :P80_EXCLUDE_INTERCO IS NULL THEN :P80_EXCLUDE_INTERCO := 'N'; END IF;",
   "IF :P80_SEPARATE IS NULL THEN :P80_SEPARATE := 'N'; END IF;"));
+# زر الطباعة يحفظ الخيارات ثم يفتح صفحة الطباعة
+out("wwv_flow_imp_page.create_page_branch(\n" . args(id => wid(nid()), branch_name => "'Print'",
+    branch_action => "'f?p=&APP_ID.:82:&SESSION.::&DEBUG.:::'", branch_point => "'AFTER_PROCESSING'",
+    branch_type => "'REDIRECT_URL'", branch_sequence => 5, branch_condition_type => "'REQUEST_EQUALS_CONDITION'",
+    branch_condition => "'PRINT'") . "\n);\n");
 branch_self();
+end_page();
+
+page(id => 82, name => 'طباعة ميزان المراجعة', alias => 'PRINT-TRIAL', template => 'page_minimal', css => $print_css . "\@page { size: A4; margin: 12mm; }
+.cons-table, .jl-table { font-size: 12px; }
+",
+     onload => 'setTimeout(function () { window.print(); }, 600);');
+region(name => 'brand', title => 'brand', type => 'static', no_header => 1, seq => 5, html => <<'HTML');
+<div class="no-print"><button type="button" class="t-Button t-Button--hot" onclick="window.print()">طباعة</button></div>
+<div class="inv-brand"><img src="#APP_FILES#logo.jpg" alt=""><div class="nm">&G_COMPANY_NAME.</div><div class="inf">&G_COMPANY_INFO.</div><div class="ln"></div></div>
+<div class="inv-title">ميزان المراجعة من &P80_FROM. إلى &P80_TO. - المستوى &P80_LEVEL.</div>
+HTML
+table_region(name => 'tb', title => 'tb', no_header => 1, sql => src('p80_ir.sql'), seq => 10);
 end_page();
 
 page(id => 81, name => 'كشف حساب', alias => 'STATEMENT', auth => 'IS_ACCOUNTANT');

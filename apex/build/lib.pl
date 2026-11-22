@@ -304,6 +304,10 @@ sub item {
   my %i = @_;
   my $id = nid();
   my $type = $i{type} // 'text';
+  # شركة واحدة وعملة واحدة: حقول الشركة والعملة وسعر الصرف وخيارات الدمج تُخفى في كل الشاشات
+  if (!$i{col} && $i{name} =~ /^P\d+_(COMPANY_ID|COMPANY|CURRENCY_CODE|CURRENCY|EXCHANGE_RATE|MODE|SEPARATE|EXCLUDE_INTERCO)$/) {
+    $type = 'hidden';
+  }
   my %t;
   if ($type eq 'text') {
     %t = (display_as => "'NATIVE_TEXT_FIELD'", cSize => 30, cMaxlength => $i{max} // 4000,

@@ -70,7 +70,7 @@ section('create_application', "wwv_imp_workspace.create_flow(\n" . args(
   application_tab_set        => 1,
   logo_type                  => "'IT'",
   logo                       => "'#APP_FILES#logo.jpg'",
-  logo_text                  => lit($APP_NAME),
+  logo_text                  => "'&G_COMPANY_NAME.'",
   proxy_server               => "nvl(wwv_flow_application_install.get_proxy,'')",
   no_proxy_domains           => "nvl(wwv_flow_application_install.get_no_proxy_domains,'')",
   flow_version               => "'Release 1.0'",
@@ -98,9 +98,9 @@ section('user_interfaces', "wwv_flow_imp_shared.create_user_interface(\n" . args
   built_with_love           => 'false',
   global_page_id            => 0,
   navigation_list_id        => wid($NAV_LIST),
-  navigation_list_position  => "'SIDE'",
-  navigation_list_template_id => wid($T{list_nav}),
-  nav_list_template_options => "'#DEFAULT#:t-TreeNav--styleA:js-navCollapsed--hidden'",
+  navigation_list_position  => "'TOP'",
+  navigation_list_template_id => wid(6757481946757518),   # Top Navigation Menu: القائمة أفقية أعلى الصفحة
+  nav_list_template_options => "'#DEFAULT#'",
   javascript_file_urls      => lit("#APP_FILES#enter_nav.js\n#APP_FILES#json_lines.js"),
   css_file_urls             => lit("#APP_FILES#app.css"),
   nav_bar_type              => "'LIST'",
@@ -112,35 +112,32 @@ section('user_interfaces', "wwv_flow_imp_shared.create_user_interface(\n" . args
 # ---------------------------------------------------------------- قائمة التنقل
 my @menu = (
   ['الرئيسية', 1, 'fa-home'],
-  ['الإعدادات', undef, 'fa-gear', [
-     ['الشركات', 200], ['العملات', 202], ['أسعار الصرف', 218], ['السنوات المالية', 204],
-     ['المستخدمون', 206], ['شركات المستخدمين', 238], ['الحسابات الافتراضية', 208], ['ذمم الفروع لدى الأم', 240]]],
-  ['الحسابات العامة', undef, 'fa-book', [
-     ['شجرة الحسابات', 10], ['أنواع القيود', 20], ['قيد يومية', 30], ['قائمة القيود', 31],
-     ['عكس القيود', 60], ['ميزان المراجعة', 80], ['كشف حساب', 81]]],
+  ['الحسابات', undef, 'fa-book', [
+     ['شجرة الحسابات', 10], ['قيد يومية', 30], ['قائمة القيود', 31], ['عكس القيود', 60],
+     ['ميزان المراجعة', 80], ['كشف حساب', 81], ['أنواع القيود', 20]]],
   ['الصندوق والبنوك', undef, 'fa-money', [
      ['إذن توريد', 40, undef, 'P40_VOUCHER_TYPE', 'R'], ['إذن صرف', 40, undef, 'P40_VOUCHER_TYPE', 'P'], ['قائمة الأذونات', 41]]],
   ['المبيعات', undef, 'fa-truck', [
      ['فاتورة مبيعات', 50, undef, 'P50_INVOICE_TYPE', 'SALE'], ['مرتجع مبيعات', 50, undef, 'P50_INVOICE_TYPE', 'RETURN'],
-     ['قائمة المبيعات', 51], ['قوائم الأسعار', 214], ['أسعار الأصناف', 234]]],
+     ['قائمة المبيعات', 51]]],
   ['المشتريات', undef, 'fa-cart-arrow-down', [
      ['فاتورة مشتريات', 55, undef, 'P55_INVOICE_TYPE', 'PURCHASE'], ['مرتجع مشتريات', 55, undef, 'P55_INVOICE_TYPE', 'RETURN'],
      ['قائمة المشتريات', 56]]],
   ['المخزون', undef, 'fa-cubes', [
-     ['الأصناف', 210], ['الوحدات', 212], ['وحدات الأصناف', 236], ['المخازن', 216],
+     ['الأصناف وأسعارها', 210], ['زيادة الأسعار بنسبة', 252], ['الوحدات', 212], ['وحدات الأصناف', 236], ['المخازن', 216],
      ['إشعار إضافة (بضاعة أول المدة)', 90, undef, 'P90_TRANS_TYPE', 'OPENING'],
-['صرف داخلي', 90, undef, 'P90_TRANS_TYPE', 'ISSUE'],
+     ['صرف داخلي', 90, undef, 'P90_TRANS_TYPE', 'ISSUE'],
      ['تحويل بين المخازن', 90, undef, 'P90_TRANS_TYPE', 'TRANSFER'], ['تسوية جرد', 90, undef, 'P90_TRANS_TYPE', 'COUNT'],
      ['قائمة الحركات', 91], ['أرصدة المخزون', 92], ['كارت صنف', 93]]],
   ['الموظفون والرواتب', undef, 'fa-users', [
      ['الدرجات الوظيفية', 220], ['الموظفون', 222], ['بنود العلاوات والخصومات', 224],
      ['علاوات الدرجات', 226], ['علاوات الموظفين', 228],
      ['خصم', 70, undef, 'P70_ADJ_TYPE', 'DED'], ['فرق مبلغ', 70, undef, 'P70_ADJ_TYPE', 'DIFF'],
-     ['حافز', 70, undef, 'P70_ADJ_TYPE', 'INC'], ['الخصومات والحوافز', 71],
-     ['مسير الرواتب', 100], ['توزيع الرواتب', 102]]],
-  ['الموازنة والفروع', undef, 'fa-pie-chart', [
-     ['الخطة التقديرية (الموازنة)', 120], ['الموازنة مقابل الفعلي', 121],
-     ['بنود ميزانية الفروع', 125], ['الميزانية المجمّعة', 126]]],
+     ['حافز', 70, undef, 'P70_ADJ_TYPE', 'INC'], ['الخصومات والحوافز', 71], ['مسير الرواتب', 100]]],
+  ['الموازنة', undef, 'fa-pie-chart', [
+     ['الخطة التقديرية (الموازنة)', 120], ['الموازنة مقابل الفعلي', 121]]],
+  ['الإعدادات', undef, 'fa-gear', [
+     ['بيانات الشركة', 199], ['المستخدمون', 206], ['السنوات المالية', 204], ['الحسابات الافتراضية', 208]]],
 );
 {
   my $b = "wwv_flow_imp_shared.create_list(\n" . args(id => wid($NAV_LIST), name => "'Navigation Menu'", list_status => "'PUBLIC'") . "\n);\n";
@@ -219,7 +216,7 @@ skel('10_plugin_settings.sql');
 # ---------------------------------------------------------------- Application Items + Processes
 {
   my $b = '';
-  for my $n (qw(G_COMPANY_ID G_PARENT_ID G_USER_ROLE)) {
+  for my $n (qw(G_COMPANY_ID G_PARENT_ID G_USER_ROLE G_COMPANY_NAME G_COMPANY_INFO)) {
     $b .= "wwv_flow_imp_shared.create_flow_item(\n" . args(id => wid(main::nid()), name => lit($n), protection_level => "'I'") . "\n);\n";
   }
   section('shared_components/logic/application_items', $b);
@@ -229,13 +226,27 @@ skel('10_plugin_settings.sql');
   $init =~ s/EXCEPTION\s*\n\s*WHEN NO_DATA_FOUND THEN\s*\n\s*raise_application_error\(-20000, '([^']*)'\);/EXCEPTION\n  WHEN NO_DATA_FOUND THEN\n    DECLARE l_cnt NUMBER;\n    BEGIN\n      SELECT COUNT(*) INTO l_cnt FROM app_users;\n      IF l_cnt = 0 THEN\n        :G_USER_ROLE := 'GM';\n        SELECT company_id INTO :G_PARENT_ID FROM companies WHERE is_parent = 'Y';\n        :G_COMPANY_ID := :G_PARENT_ID;\n      ELSE\n        raise_application_error(-20000, '$1');\n      END IF;\n    END;/;
   my $p = '';
   my $seq = 0;
-  for my $proc (['INIT_USER', 'AFTER_LOGIN', $init], ['GET_RATE', 'ON_DEMAND', src('app_get_rate.sql')],
+  # اسم الشركة وبياناتها: تُقرأ عند بدء كل جلسة (حتى صفحة الدخول) وتظهر في رأس الصفحات والتقارير
+  my $company = <<'PLSQL';
+BEGIN
+  SELECT name_ar,
+         LTRIM(address || NVL2(phone, ' | هاتف: ' || phone, NULL)
+               || NVL2(tax_no, ' | الرقم الضريبي: ' || tax_no, NULL), ' |')
+  INTO   :G_COMPANY_NAME, :G_COMPANY_INFO
+  FROM   companies WHERE is_parent = 'Y';
+EXCEPTION WHEN OTHERS THEN
+  :G_COMPANY_NAME := 'المؤسسة التعاونية الوطنية';
+END;
+PLSQL
+  push @main::PLSQL, ['APP process COMPANY_INFO', $company];
+  for my $proc (['COMPANY_INFO', 'ON_NEW_INSTANCE', $company, 'public'],
+                ['INIT_USER', 'AFTER_LOGIN', $init], ['GET_RATE', 'ON_DEMAND', src('app_get_rate.sql')],
                 ['GET_ACCOUNTS', 'ON_DEMAND', src('app_get_accounts.sql')]) {
     $p .= "wwv_flow_imp_shared.create_flow_process(\n" . args(
       id => wid(main::nid()), process_sequence => ($seq += 10), process_point => lit($proc->[1]),
       process_type => "'NATIVE_PLSQL'", process_name => lit($proc->[0]),
       process_sql_clob => txt($proc->[2]), process_clob_language => "'PLSQL'",
-      security_scheme => "'MUST_NOT_BE_PUBLIC_USER'") . "\n);\n";
+      security_scheme => $proc->[3] ? undef : "'MUST_NOT_BE_PUBLIC_USER'") . "\n);\n";
   }
   section('shared_components/logic/application_processes', $p);
 }
@@ -270,7 +281,7 @@ require "$BUILD/pages_master.pl";
 
 # ---------------------------------------------------------------- صفحة الدخول
 page(id => 9999, name => 'Login Page', alias => 'LOGIN', title => "$APP_NAME - دخول", template => 'page_login', public => 1);
-region(name => 'login', title => $APP_NAME, type => 'static', template => 'reg_login', html => '', image => '#APP_FILES#logo.jpg');
+region(name => 'login', title => '&G_COMPANY_NAME.', type => 'static', template => 'reg_login', html => '', image => '#APP_FILES#logo.jpg');
 item(name => 'P9999_USERNAME', region => 'login', label => 'اسم المستخدم', seq => 10);
 item(name => 'P9999_PASSWORD', region => 'login', label => 'كلمة المرور', seq => 20, type => 'password');
 button(name => 'LOGIN', region => 'login', label => 'دخول', hot => 1, seq => 40);

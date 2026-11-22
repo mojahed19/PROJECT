@@ -28,6 +28,8 @@ var vch = {
     document.addEventListener('keydown', function (e) {
       if (e.ctrlKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); vch.save('DRAFT'); }
     });
+    var nx = function () { DocUtil.nextNo('VOUCHER', 'P40_VOUCHER_ID', 'P40_VOUCHER_TYPE', null, 'P40_VOUCHER_DATE'); };
+    nx(); apex.jQuery('#P40_VOUCHER_DATE').on('change', nx);
     EnterNav.first('#main');
   },
 

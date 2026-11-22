@@ -533,6 +533,20 @@ window.DocUtil = {
     });
   },
 
+  // رقم المستند الجديد المتوقع: يُعرض في رأس المستند قبل الحفظ (Ajax Callback اسمه NEXT_NO)
+  nextNo: function (kind, idItem, typeItem, payItem, dateItem) {
+    var el = document.getElementById('doc_no');
+    if (!el || apex.item(idItem).getValue()) return;
+    apex.server.process('NEXT_NO', {
+      x01: typeItem ? apex.item(typeItem).getValue() : '',
+      x02: payItem ? (apex.item(payItem).getValue() || 'CASH') : '',
+      x03: dateItem ? apex.item(dateItem).getValue() : '',
+      x04: kind
+    }, {dataType: 'json'}).done(function (d) {
+      if (d.no) el.innerHTML = d.no + ' <small style="color:#888">(رقم جديد)</small>';
+    });
+  },
+
   showErrors: function (errs) {
     apex.message.clearErrors();
     apex.message.showErrors(errs.map(function (m) {
