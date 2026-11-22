@@ -73,7 +73,7 @@ section('create_application', "wwv_imp_workspace.create_flow(\n" . args(
   logo_text                  => "'&G_COMPANY_NAME.'",
   proxy_server               => "nvl(wwv_flow_application_install.get_proxy,'')",
   no_proxy_domains           => "nvl(wwv_flow_application_install.get_no_proxy_domains,'')",
-  flow_version               => "'Release 1.0'",
+  flow_version               => lit('الإصدار 1.0'),
   flow_status                => "'AVAILABLE_W_EDIT_LINK'",
   exact_substitutions_only   => "'Y'",
   browser_cache              => "'N'",
@@ -158,7 +158,7 @@ my @menu = (
       list_item_display_sequence  => $seq,
       list_item_link_text         => lit($label),
       list_item_link_target       => lit($target),
-      list_item_icon              => lit($icon // ($parent ? 'fa-angle-left' : 'fa-folder-o')),
+      list_item_icon              => undef,   # القائمة الأفقية لا تعرض أيقونات
       parent_list_item_id         => $parent ? wid($parent) : undef,
       list_item_current_type      => defined $page ? "'TARGET_PAGE'" : undef,
     ) . "\n);\n";
@@ -249,6 +249,43 @@ PLSQL
       security_scheme => $proc->[3] ? undef : "'MUST_NOT_BE_PUBLIC_USER'") . "\n);\n";
   }
   section('shared_components/logic/application_processes', $p);
+}
+
+# ---------------------------------------------------------------- رسائل APEX بالعربية
+# حزمة اللغة العربية غير مثبتة في APEX على هذا الخادم، فتُترجم النصوص الظاهرة داخل التطبيق
+{
+  my @msg = (
+    # التقارير التفاعلية
+    ['APEXIR_GO', 'بحث'], ['APEXIR_ACTIONS', 'إجراءات'], ['APEXIR_SEARCH', 'بحث'], ['APEXIR_SEARCH_REPORT', 'بحث في التقرير'],
+    ['APEXIR_ROWS', 'صفوف'], ['APEXIR_ROWS_PER_PAGE', 'صفوف في الصفحة'], ['APEXIR_DOWNLOAD', 'تنزيل'],
+    ['APEXIR_FILTER', 'تصفية'], ['APEXIR_COLUMNS', 'الأعمدة'], ['APEXIR_SELECT_COLUMNS', 'اختيار الأعمدة'],
+    ['APEXIR_HIGHLIGHT', 'تمييز'], ['APEXIR_SORT', 'ترتيب'], ['APEXIR_CONTROL_BREAK', 'تجميع حسب عمود'],
+    ['APEXIR_AGGREGATE', 'مجاميع'], ['APEXIR_CHART', 'رسم بياني'], ['APEXIR_GROUP_BY', 'تجميع'],
+    ['APEXIR_PIVOT', 'جدول محوري'], ['APEXIR_FLASHBACK', 'استرجاع سابق'], ['APEXIR_SAVE_REPORT', 'حفظ التقرير'],
+    ['APEXIR_RESET', 'إعادة ضبط'], ['APEXIR_HELP', 'مساعدة'], ['APEXIR_DATA', 'البيانات'], ['APEXIR_FORMAT', 'التنسيق'],
+    ['APEXIR_REPORT', 'التقرير'], ['APEXIR_ALL_COLUMNS', 'كل الأعمدة'], ['APEXIR_SUBSCRIPTION', 'اشتراك'],
+    ['APEXIR_APPLY', 'تطبيق'], ['APEXIR_CANCEL', 'إلغاء'], ['APEXIR_DELETE', 'حذف'], ['APEXIR_ROW_OF', 'صف من'],
+    ['APEXIR_NEXT', 'التالي'], ['APEXIR_PREVIOUS', 'السابق'], ['APEXIR_EDIT', 'تعديل'], ['APEXIR_SEARCH_BAR', 'شريط البحث'],
+    ['APEXIR_ASCENDING', 'تصاعدي'], ['APEXIR_DESCENDING', 'تنازلي'], ['APEXIR_HIDE_COLUMN', 'إخفاء العمود'],
+    ['APEXIR_COMPUTE', 'عمود محسوب'], ['APEXIR_EMAIL', 'بريد إلكتروني'], ['APEXIR_CLEAR', 'مسح'],
+    # رسائل عامة وتسجيل الدخول
+    ['INVALID_CREDENTIALS', 'اسم المستخدم أو كلمة المرور غير صحيحة'],
+    ['APEX.AUTHENTICATION.LOGIN_THROTTLE.ERROR', 'تم إيقاف محاولة الدخول مؤقتاً، انتظر قليلاً ثم حاول مرة أخرى'],
+    ['APEX.CORRECT_ERRORS', 'صحّح الأخطاء قبل الحفظ'],
+    ['APEX.NUMBER_FIELD.VALUE_INVALID', 'يجب أن يكون #LABEL# رقماً صحيحاً'],
+    ['APEX.PAGE_ITEM_IS_REQUIRED', 'الحقل #LABEL# مطلوب'],
+    # رسائل تُستخدم في JavaScript
+    ['APEX.DATEPICKER.TODAY', 'اليوم', 1], ['APEX.DATEPICKER.DONE', 'تم', 1], ['APEX.POPUP_LOV.SEARCH', 'كلمة البحث', 1],
+    ['APEX.DIALOG.CLOSE', 'إغلاق', 1], ['APEX.DIALOG.CANCEL', 'إلغاء', 1], ['APEX.DIALOG.OK', 'موافق', 1],
+    ['APEX.WARN_ON_UNSAVED_CHANGES', 'في الصفحة تغييرات لم تُحفظ', 1],
+  );
+  my $b = '';
+  for my $m (@msg) {
+    $b .= "wwv_flow_imp_shared.create_message(\n" . args(
+      id => wid(main::nid()), name => lit($m->[0]), message_language => "'ar-sa'",
+      message_text => lit($m->[1]), is_js_message => $m->[2] ? 'true' : undef) . "\n);\n";
+  }
+  section('shared_components/globalization/messages_ar', $b);
 }
 
 skel('20_theme.sql');

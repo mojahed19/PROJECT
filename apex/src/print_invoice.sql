@@ -102,7 +102,7 @@ BEGIN
   ELSE
     htp.p('<table class="inv-sign"><tr><td>المحاسب<br><br>..................</td><td>أمين المخزن<br><br>..................</td><td>'
           || CASE l_kind WHEN 'SALE' THEN 'المستلم' ELSE 'المورد' END || '<br><br>..................</td></tr></table>');
-    htp.p('<div class="inv-foot">طُبعت بواسطة ' || e(l_user) || ' في ' || TO_CHAR(SYSDATE, 'DD/MM/YYYY HH24:MI') || '</div>');
+    htp.p('<div class="inv-foot">طُبعت بواسطة ' || e(v('APP_USER')) || ' في ' || TO_CHAR(SYSDATE, 'DD/MM/YYYY HH24:MI') || '</div>');
   END IF;
   htp.p('</div>');
 EXCEPTION WHEN NO_DATA_FOUND THEN

@@ -196,3 +196,13 @@ body, .t-Body, .t-Header, .t-Region, .t-Button, input, select, textarea {
 .t-Header-nav .a-MenuBar-item.is-selected, .t-Header-nav .a-MenuBar-item:hover,
 .t-Header-nav .a-MenuBar-item.a-Menu--current { background: var(--ncc-green, #1e8e3e) !important; }
 .t-Header-nav .a-MenuBar-item.a-Menu--current { box-shadow: inset 0 -3px 0 var(--ncc-red, #d9232d); }
+
+/* ---------- حالة المستند بالعربية (القيمة المخزنة بالإنجليزية) */
+.doc-status { font-size: 0 !important; }
+.doc-status::after { font-size: 12px; }
+.doc-status--DRAFT::after     { content: 'مسودة'; }
+.doc-status--POSTED::after    { content: 'مرحّل'; }
+.doc-status--APPROVED::after  { content: 'معتمد'; }
+.doc-status--REVERSED::after  { content: 'معكوس'; }
+.doc-status--CANCELLED::after { content: 'ملغى'; }
+.doc-status--APPLIED::after   { content: 'مطبَّق'; }

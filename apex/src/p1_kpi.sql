@@ -10,8 +10,8 @@ WITH mv AS (
   AND (:G_USER_ROLE = 'GM' OR j.company_id = :G_COMPANY_ID)
   AND (NVL(:P1_MODE,'SEP') = 'SEP' OR l.partner_company_id IS NULL)
 )
-SELECT 'المبيعات' label,
-       TO_CHAR(-SUM(CASE WHEN account_code LIKE '41%' AND EXTRACT(YEAR FROM journal_date) = :P1_YEAR THEN bal END), 'FM999G999G999G990') value
+SELECT 'المبيعات' AS "البيان",
+       TO_CHAR(-SUM(CASE WHEN account_code LIKE '41%' AND EXTRACT(YEAR FROM journal_date) = :P1_YEAR THEN bal END), 'FM999G999G999G990') AS "القيمة"
 FROM mv
 UNION ALL
 SELECT 'تكلفة المبيعات',
@@ -29,7 +29,7 @@ UNION ALL
 SELECT 'النقدية والبنوك', TO_CHAR(SUM(CASE WHEN cash_bank IN ('C','B') THEN bal END), 'FM999G999G999G990')
 FROM mv
 UNION ALL
-SELECT 'ذمم الشركات الفرعية', TO_CHAR(SUM(CASE WHEN account_code LIKE '1103%' THEN bal END), 'FM999G999G999G990')
+SELECT 'ذمم العملاء', TO_CHAR(SUM(CASE WHEN account_code LIKE '1106%' THEN bal END), 'FM999G999G999G990')
 FROM mv
 UNION ALL
 SELECT 'قيمة المخزون', TO_CHAR((SELECT ROUND(SUM(qty_base * avg_cost)) FROM v_stock_balance

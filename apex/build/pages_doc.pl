@@ -359,7 +359,7 @@ for my $pp (['53', 'SALE', 'A4', 'P53_INVOICE_ID', 'طباعة فاتورة مب
 HTML
   item(name => $itm, region => 'brand', type => 'hidden');
   my $code = src('print_invoice.sql');
-  $code =~ s/__KIND__/$kind/; $code =~ s/__SIZE__/$size/; $code =~ s/__ITEM__/$itm/;
+  $code =~ s/__KIND__/$kind/g; $code =~ s/__SIZE__/$size/g; $code =~ s/__ITEM__/$itm/g;
   region(name => 'body', title => 'body', type => 'plsql', no_header => 1, seq => 10, plsql => $code);
   end_page();
 }
@@ -707,7 +707,7 @@ item(name => 'P1_YEAR', region => 'f', type => 'select', label => 'السنة', 
 item(name => 'P1_MODE', region => 'f', type => 'select', label => 'العرض', submit => 1, seq => 30, same_line => 1,
      lov => "SELECT 'كل شركة منفصلة' d, 'SEP' r FROM dual UNION ALL SELECT 'مجمّع (يستبعد البيني)', 'CONS' FROM dual");
 table_region(name => 'kpi', title => 'المؤشرات', sql => src('p1_kpi.sql'), seq => 10, span => 4);
-table_region(name => 'comp', title => 'مقارنة الشركات', sql => src('p1_companies.sql'), seq => 20, span => 8, same_row => 1);
+table_region(name => 'comp', title => 'الإيرادات والمصروفات شهرياً', sql => src('p1_monthly.sql'), seq => 20, span => 8, same_row => 1);
 table_region(name => 'alerts', title => 'تنبيهات', sql => src('p1_alerts.sql'), seq => 30);
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
   "IF :P1_YEAR IS NULL THEN :P1_YEAR := TO_CHAR(SYSDATE, 'YYYY'); END IF;",

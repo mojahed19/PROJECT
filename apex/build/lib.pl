@@ -101,7 +101,7 @@ sub page {
     dialog_chained          => $p{modal} ? "'N'" : undef,
     page_is_public_y_n      => $p{public} ? "'Y'" : undef,
     required_role           => $p{auth} ? wid($SEC{$p{auth}}) : undef,
-    protection_level        => "'C'",
+    protection_level        => "'N'",   # N = Unrestricted (C=checksum, U=no args, D=no URL): يقبل الروابط المبنية في المتصفح (أزرار الطباعة). الصلاحيات تُفحص في الخادم
   ) . "\n);\n");
 }
 sub end_page { out("end;\n/\n"); }
