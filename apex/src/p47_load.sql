@@ -12,8 +12,10 @@ BEGIN
   :P47_JOURNAL_ID  := c.settle_journal_id;
   SELECT MAX(status) INTO :P47_JNL_STATUS FROM journals WHERE journal_id = c.settle_journal_id;
   :P47_CLEAR_LABEL := CASE v.voucher_type WHEN 'R' THEN 'تم التحصيل' ELSE 'تم الصرف' END;
+  SELECT MAX(name_ar) INTO l_bank FROM accounts WHERE account_id = NVL(c.bank_account_id, v.bank_account_id);
+  IF :P47_SETTLE_BANK_ID IS NULL THEN :P47_SETTLE_BANK_ID := v.bank_account_id; END IF;
   :P47_INFO := CASE v.voucher_type WHEN 'R' THEN 'شيك وارد' ELSE 'شيك صادر' END
-            || ' رقم ' || c.cheque_no || ' - ' || NVL(l_bank, c.bank_name)
+            || ' مسلسل ' || c.cheque_serial || ' - رقم ' || c.cheque_no || ' - ' || l_bank
             || ' - المبلغ ' || TO_CHAR(c.amount, 'FM999G999G999G990D00')
             || ' - الاستحقاق ' || TO_CHAR(c.due_date, 'DD/MM/YYYY')
             || ' - الإذن ' || v.voucher_no

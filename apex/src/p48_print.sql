@@ -25,7 +25,7 @@ BEGIN
 
   htp.p('<style>@page { size: ' || ly.width_mm || 'mm ' || ly.height_mm || 'mm; margin: 0; }</style>');
   htp.p('<div class="no-print"><button type="button" class="t-Button t-Button--hot" onclick="window.print()">طباعة الشيك</button>'
-        || ' &nbsp; <span style="color:#666">' || apex_escape.html(l_bank) || ' - شيك رقم ' || apex_escape.html(c.cheque_no)
+        || ' &nbsp; <span style="color:#666">' || apex_escape.html(l_bank) || ' - مسلسل ' || c.cheque_serial || ' - شيك رقم ' || apex_escape.html(c.cheque_no)
         || ' - مقاس ' || ly.width_mm || ' × ' || ly.height_mm || ' مم (' || apex_escape.html(ly.layout_name) || ')</span></div>');
   htp.p('<div class="chq" style="width:' || ly.width_mm || 'mm;height:' || ly.height_mm || 'mm;font-size:' || ly.font_size || 'px">');
   htp.p('<div style="' || pos(ly.date_top, ly.date_right) || '">' || TO_CHAR(c.due_date, 'DD/MM/YYYY') || '</div>');

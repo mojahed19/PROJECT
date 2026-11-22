@@ -6,6 +6,7 @@ BEGIN
   :P45_VOUCHER_NO         := r.voucher_no;
   :P45_VOUCHER_DATE       := TO_CHAR(r.voucher_date, 'DD/MM/YYYY');
   :P45_COUNTER_ACCOUNT_ID := r.counter_account_id;
+  :P45_BANK_ACCOUNT_ID    := r.bank_account_id;
   :P45_PARTY_NAME         := r.party_name;
   :P45_DESCRIPTION        := r.description;
   :P45_STATUS             := r.status;

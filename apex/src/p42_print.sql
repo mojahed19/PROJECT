@@ -30,12 +30,13 @@ BEGIN
   htp.p('</table>');
 
   IF v.voucher_kind = 'CHEQUE' THEN
-    htp.p('<table class="inv-lines"><thead><tr><th>#</th><th>رقم الشيك</th><th>البنك</th><th>تاريخ الاستحقاق</th>'
+    htp.p('<table class="inv-lines"><thead><tr><th>#</th><th>المسلسل</th><th>رقم الشيك</th><th>البنك</th><th>تاريخ الصرف</th>'
           || '<th>' || CASE v.voucher_type WHEN 'R' THEN 'الساحب' ELSE 'المستفيد' END || '</th><th>المبلغ</th></tr></thead><tbody>');
-    FOR c IN (SELECT c.line_no, c.cheque_no, NVL(b.name_ar, c.bank_name) bank, c.due_date, c.payee_name, c.amount
+    FOR c IN (SELECT c.line_no, c.cheque_serial, c.cheque_no, NVL(b.name_ar, NVL(vb.name_ar, '')) || CASE WHEN c.bank_name IS NOT NULL THEN ' (' || c.bank_name || ')' END bank, c.due_date, c.payee_name, c.amount
               FROM cheques c LEFT JOIN accounts b ON b.account_id = c.bank_account_id
+              JOIN vouchers vv ON vv.voucher_id = c.voucher_id LEFT JOIN accounts vb ON vb.account_id = vv.bank_account_id
               WHERE c.voucher_id = v.voucher_id ORDER BY c.line_no) LOOP
-      htp.p('<tr><td class="c">' || c.line_no || '</td><td>' || e(c.cheque_no) || '</td><td>' || e(c.bank) || '</td><td class="c">'
+      htp.p('<tr><td class="c">' || c.line_no || '</td><td>' || e(c.cheque_serial) || '</td><td>' || e(c.cheque_no) || '</td><td>' || e(c.bank) || '</td><td class="c">'
             || TO_CHAR(c.due_date, 'DD/MM/YYYY') || '</td><td>' || e(c.payee_name) || '</td><td class="n">' || fn(c.amount) || '</td></tr>');
     END LOOP;
     htp.p('</tbody></table>');

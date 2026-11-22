@@ -1,12 +1,13 @@
 SELECT c.cheque_id,
-       c.due_date AS "تاريخ الاستحقاق",
+       c.due_date AS "تاريخ الصرف",
        CASE WHEN c.status <> 'PENDING' THEN NULL
             WHEN c.due_date <  TRUNC(SYSDATE) THEN 'متأخر'
             WHEN c.due_date =  TRUNC(SYSDATE) THEN 'مستحق اليوم'
             WHEN c.due_date <= TRUNC(SYSDATE) + 7 THEN 'خلال أسبوع' END AS "التنبيه",
        DECODE(v.voucher_type, 'R', 'وارد (تحصيل)', 'صادر (صرف)') AS "النوع",
+       c.cheque_serial AS "المسلسل",
        c.cheque_no AS "رقم الشيك",
-       NVL(b.name_ar, c.bank_name) AS "البنك",
+       NVL(b.name_ar, vb.name_ar) || CASE WHEN c.bank_name IS NOT NULL THEN ' (بنك الساحب: ' || c.bank_name || ')' END AS "البنك",
        c.payee_name AS "المستفيد / الساحب",
        c.amount AS "المبلغ",
        DECODE(c.status, 'PENDING', 'قائم',
@@ -22,6 +23,7 @@ SELECT c.cheque_id,
 FROM   cheques c
 JOIN   vouchers v ON v.voucher_id = c.voucher_id
 LEFT JOIN accounts b  ON b.account_id  = c.bank_account_id
+LEFT JOIN accounts vb ON vb.account_id = v.bank_account_id
 LEFT JOIN accounts ca ON ca.account_id = v.counter_account_id
 LEFT JOIN journals j  ON j.journal_id  = c.settle_journal_id
 WHERE  v.status IN ('APPROVED','POSTED')

@@ -207,16 +207,19 @@ end_page();
 page(id => 45, name => 'إذن شيكات', alias => 'CHEQUE-VOUCHER', title => '&P45_TITLE.', auth => 'IS_ACCOUNTANT',
      js => src('p45.js'),
      onload => "chq.init();\n" . sprintf($SAVE_KEYS, 'P45_STATUS', '', '',
-       "['P45_VOUCHER_DATE','P45_COUNTER_ACCOUNT_ID','P45_PARTY_NAME','P45_DESCRIPTION']"));
+       "['P45_VOUCHER_DATE','P45_BANK_ACCOUNT_ID','P45_COUNTER_ACCOUNT_ID','P45_PARTY_NAME','P45_DESCRIPTION']"));
 region(name => 'head', title => '&P45_TITLE.', type => 'static', html => doc_status_html('P45_VOUCHER_NO', 'P45_STATUS', 'رقم الإذن', 'P45'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1])
   for (['P45_VOUCHER_ID',1],['P45_VOUCHER_TYPE',2],['P45_VOUCHER_NO',3],['P45_STATUS',4],['P45_JOURNAL_ID',5],['P45_TITLE',6],['P45_TOTAL',7]);
 item(name => 'P45_VOUCHER_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, required => 1);
-item(name => 'P45_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label => '&P45_ACC_LABEL.', lov => $LOV{accounts_party}, seq => 30, same_line => 1, required => 1);
+item(name => 'P45_BANK_ACCOUNT_ID', region => 'head', type => 'select', label => '&P45_BANK_LABEL.', null => 1, seq => 25, same_line => 1, required => 1,
+     lov => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE cash_bank = 'B' AND is_active = 'Y' ORDER BY account_code");
+item(name => 'P45_BANK_LABEL', region => 'head', type => 'hidden', seq => 10);
+item(name => 'P45_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label => '&P45_ACC_LABEL.', lov => $LOV{accounts_party}, seq => 30, required => 1);
 item(name => 'P45_ACC_LABEL', region => 'head', type => 'hidden', seq => 8);
 item(name => 'P45_PARTY_LABEL', region => 'head', type => 'hidden', seq => 9);
-item(name => 'P45_PARTY_NAME', region => 'head', label => '&P45_PARTY_LABEL.', seq => 40);
-item(name => 'P45_DESCRIPTION', region => 'head', label => 'البيان', seq => 50, same_line => 1, max => 500, required => 1);
+item(name => 'P45_PARTY_NAME', region => 'head', label => '&P45_PARTY_LABEL.', seq => 40, same_line => 1, required => 1);
+item(name => 'P45_DESCRIPTION', region => 'head', label => 'البيان', seq => 50, max => 500, required => 1);
 region(name => 'lines', title => 'الشيكات', type => 'static', seq => 20,
        html => "<div id=\"chq_lines\"></div>\n<div style=\"margin-top:8px\"><b>إجمالي الشيكات:</b> <span id=\"chq_total\">0.00</span></div>");
 button(name => 'SAVE', region => 'lines', label => 'حفظ (Ctrl+S)', js => 'chq.save();', hot => 1, seq => 10, cond => can_save('P45_STATUS'));
@@ -231,11 +234,11 @@ wf_setup(page => 45, region => 'lines', table => 'vouchers', idcol => 'voucher_i
 region(name => 'prints', title => 'طباعة الشيكات', type => 'plsql', seq => 30,
        cond => ":P45_VOUCHER_TYPE = 'P' AND :P45_STATUS IN ('APPROVED','POSTED')", plsql => <<'PLSQL');
 BEGIN
-  FOR c IN (SELECT cheque_id, cheque_no, amount, TO_CHAR(due_date, 'DD/MM/YYYY') due FROM cheques
+  FOR c IN (SELECT cheque_id, cheque_serial, cheque_no, amount, TO_CHAR(due_date, 'DD/MM/YYYY') due FROM cheques
             WHERE voucher_id = :P45_VOUCHER_ID ORDER BY line_no) LOOP
     htp.p('<a class="t-Button t-Button--small" style="margin:3px" target="_blank" href="'
           || apex_page.get_url(p_page => 48, p_items => 'P48_CHEQUE_ID', p_values => c.cheque_id)
-          || '">طباعة الشيك ' || apex_escape.html(c.cheque_no) || ' - ' || TO_CHAR(c.amount, 'FM999G999G999G990D00')
+          || '">طباعة الشيك ' || apex_escape.html(c.cheque_no) || ' (' || c.cheque_serial || ')' || ' - ' || TO_CHAR(c.amount, 'FM999G999G999G990D00')
           || ' - ' || c.due || '</a>');
   END LOOP;
 END;
@@ -250,7 +253,8 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   next_no_sql('P45_VOUCHER_ID', 'P45_VOUCHER_NO', "CASE :P45_VOUCHER_TYPE WHEN 'R' THEN '13' ELSE '14' END", 'P45_VOUCHER_DATE'),
   ":P45_TITLE := CASE :P45_VOUCHER_TYPE WHEN 'R' THEN 'إذن توريد شيكات' ELSE 'إذن صرف شيكات' END;",
   ":P45_ACC_LABEL := CASE :P45_VOUCHER_TYPE WHEN 'R' THEN 'الحساب المقابل (العميل / الجهة)' ELSE 'الحساب المقابل (المورد / الجهة)' END;",
-  ":P45_PARTY_LABEL := CASE :P45_VOUCHER_TYPE WHEN 'R' THEN 'استلمنا من' ELSE 'صرفنا إلى (المستفيد)' END;"));
+  ":P45_PARTY_LABEL := CASE :P45_VOUCHER_TYPE WHEN 'R' THEN 'استلمنا من' ELSE 'اسم المستفيد (يُطبع على الشيكات)' END;",
+  ":P45_BANK_LABEL := CASE :P45_VOUCHER_TYPE WHEN 'R' THEN 'البنك المودَع فيه' ELSE 'البنك المسحوب عليه' END;"));
 ajax('INIT_DATA', src('p45_init.sql'));
 ajax('SAVE_DOC',  src('p45_save.sql'));
 branch_self('P45_VOUCHER_ID', 'P45_VOUCHER_TYPE');
