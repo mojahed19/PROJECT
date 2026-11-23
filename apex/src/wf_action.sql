@@ -49,6 +49,11 @@ BEGIN
     END CASE;
   END IF;
 
+  -- شرط إضافي خاص بالمستند (مثل: إذن الشيكات لا يُراجع قبل جدولة شيكاته)
+  IF l_err IS NULL AND l_req IN ('REVIEW','APPROVE') THEN
+    __PRECHECK__
+  END IF;
+
   IF l_err IS NOT NULL THEN
     apex_error.add_error(p_message => l_err, p_display_location => apex_error.c_inline_in_notification);
     RETURN;

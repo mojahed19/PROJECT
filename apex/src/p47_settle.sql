@@ -25,12 +25,15 @@ BEGIN
   SELECT * INTO c FROM cheques WHERE cheque_id = :P47_CHEQUE_ID FOR UPDATE;
   SELECT * INTO v FROM vouchers WHERE voucher_id = c.voucher_id;
 
-  ------------------------------------------------------------ إلغاء التسوية (قبل مراجعة القيد)
+  ------------------------------------------------------------ إلغاء التسوية (تصحيح خطأ): من صلاحية المعتمد
   IF l_req = 'UNSETTLE' THEN
     SELECT MAX(status) INTO l_jst FROM journals WHERE journal_id = c.settle_journal_id;
-    IF c.status = 'PENDING' OR NVL(l_jst, 'DRAFT') NOT IN ('DRAFT','RETURNED') THEN
-      err('لا يمكن إلغاء التسوية بعد مراجعة قيدها'); RETURN;
+    IF :G_USER_ROLE NOT IN ('ADMIN','APPROVER') THEN err('إلغاء تسوية الشيك من صلاحية المعتمد'); RETURN; END IF;
+    IF c.status = 'PENDING' OR NVL(l_jst, 'DRAFT') = 'REVERSED' THEN
+      err('الشيك غير مسوّى أو قيده معكوس'); RETURN;
     END IF;
+    INSERT INTO doc_actions (doc_type, doc_id, action, from_status, to_status, note, action_by)
+    VALUES ('CHEQUE', c.cheque_id, 'UNSETTLE', c.status, 'PENDING', 'حذف قيد التسوية ' || c.settle_journal_id, :APP_USER);
     UPDATE cheques SET status = 'PENDING', settle_date = NULL, settle_bank_id = NULL, settle_journal_id = NULL, settled_by = NULL
     WHERE  cheque_id = c.cheque_id;
     IF c.settle_journal_id IS NOT NULL THEN
@@ -86,9 +89,12 @@ BEGIN
 
   INSERT INTO journals (company_id, jt_code, journal_no, journal_date, currency_code, exchange_rate, description,
                         ref_no, status, source_type, source_id, total_debit, total_credit, created_by)
+  -- الشيك روجع واعتُمد مع إذنه: قيد التسوية يُرحّل مباشرة
   VALUES (v.company_id, 'CQ', l_no, l_date, v.currency_code, v.exchange_rate, l_desc,
-          c.cheque_no, 'DRAFT', 'CHEQUE', c.cheque_id, c.amount, c.amount, :APP_USER)
+          c.cheque_no, 'POSTED', 'CHEQUE', c.cheque_id, c.amount, c.amount, :APP_USER)
   RETURNING journal_id INTO l_jid;
+  UPDATE journals SET reviewed_by = v.reviewed_by, reviewed_on = v.reviewed_on, approved_by = v.approved_by,
+         approved_on = v.approved_on, posted_by = :APP_USER, posted_on = SYSDATE WHERE journal_id = l_jid;
 
   INSERT INTO journal_lines (journal_id, line_no, account_id, debit, credit, debit_base, credit_base, description)
   VALUES (l_jid, 1, l_dr, c.amount, 0, ROUND(c.amount * v.exchange_rate, 2), 0, l_desc);
@@ -103,7 +109,7 @@ BEGIN
   WHERE  cheque_id = c.cheque_id;
 
   INSERT INTO doc_actions (doc_type, doc_id, action, to_status, note, action_by)
-  VALUES ('JOURNAL', l_jid, 'SAVE', 'DRAFT', l_desc, :APP_USER);
+  VALUES ('JOURNAL', l_jid, 'POST', 'POSTED', l_desc, :APP_USER);
 
-  apex_application.g_print_success_message := 'تم إنشاء قيد التسوية ' || l_no || ' - بانتظار المراجعة والاعتماد';
+  apex_application.g_print_success_message := CASE WHEN l_req = 'BOUNCE' THEN 'تم تسجيل الشيك مرتداً' WHEN v.voucher_type = 'R' THEN 'تم تحصيل الشيك' ELSE 'تم صرف الشيك' END || ' وترحيل قيد التسوية ' || l_no;
 END;

@@ -63,7 +63,8 @@ sub wf_setup {
          cond => "$id AND ((:G_USER_ROLE IN ('ADMIN','REVIEWER') AND $st IN ('DRAFT','REVIEWED')) OR (:G_USER_ROLE IN ('ADMIN','APPROVER') AND $st IN ('REVIEWED','APPROVED')))");
   my $code = src('wf_action.sql');
   my %rep = (__ITEM__ => $a{id}, __NOTE__ => "${p}_WF_NOTE", __TABLE__ => $a{table}, __IDCOL__ => $a{idcol},
-             __DOC__ => $a{doc}, __CANPOST__ => ($a{post} ? 'Y' : 'N'), __POST__ => ($a{post} // 'NULL;'));
+             __DOC__ => $a{doc}, __CANPOST__ => ($a{post} ? 'Y' : 'N'), __POST__ => ($a{post} // 'NULL;'),
+             __PRECHECK__ => ($a{precheck} // 'NULL;'));
   for my $k (keys %rep) { my $v = $rep{$k}; $code =~ s/\Q$k\E/$v/g; }
   process(name => 'WORKFLOW', seq => 50, when_req => 'REVIEW,UNREVIEW,APPROVE,UNAPPROVE,RETURN,POST', code => $code);
 }
@@ -229,7 +230,9 @@ button(name => 'SHOW_JV', region => 'lines', label => 'عرض القيد', url =
 button(name => 'SCHEDULE', region => 'lines', label => 'جدولة الشيكات', url => 'f?p=&APP_ID.:47:&SESSION.::&DEBUG.:47::', position => 'PREVIOUS', seq => 45);
 button(name => 'REVERSE', region => 'lines', label => 'عكس', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P45_JOURNAL_ID.', position => 'PREVIOUS', seq => 50, cond => ":P45_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','APPROVER')");
 wf_setup(page => 45, region => 'lines', table => 'vouchers', idcol => 'voucher_id', id => 'P45_VOUCHER_ID',
-         status => 'P45_STATUS', doc => 'VOUCHER', extra => 'NVL(:P45_CHQ_COUNT, 0) > 0', post => src('voucher_post.sql'));
+         status => 'P45_STATUS', doc => 'VOUCHER', extra => 'NVL(:P45_CHQ_COUNT, 0) > 0', 
+         precheck => "SELECT CASE WHEN COUNT(*) = 0 THEN 'لا يُراجع إذن الشيكات قبل جدولة شيكاته' END INTO l_err FROM cheques WHERE voucher_id = l_id;",
+         post => src('voucher_post.sql'));
 # روابط طباعة الشيكات الصادرة بعد الاعتماد (كل شيك بمقاس الشيك البنكي)
 region(name => 'prints', title => 'طباعة الشيكات', type => 'plsql', seq => 30,
        cond => ":P45_VOUCHER_TYPE = 'P' AND NVL(:P45_CHQ_COUNT, 0) > 0", plsql => <<'PLSQL');
@@ -296,13 +299,13 @@ item(name => 'P47_SETTLE_BANK_ID', region => 'act', type => 'select', label => '
      cond => ":P47_KIND = 'R'");
 my $entry = ":G_USER_ROLE IN ('ADMIN','ENTRY')";
 button(name => 'CLEAR', region => 'act', label => '&P47_CLEAR_LABEL.', hot => 1, seq => 10,
-       cond => "$entry AND :P47_CHQ_STATUS = 'PENDING'", confirm => 'سيُنشأ قيد تسوية بانتظار المراجعة والاعتماد. متابعة؟');
+       cond => "$entry AND :P47_CHQ_STATUS = 'PENDING'", confirm => 'سيُرحّل قيد التسوية مباشرة (الشيك معتمد مع إذنه). متابعة؟');
 item(name => 'P47_CLEAR_LABEL', region => 'act', type => 'hidden', seq => 5);
 button(name => 'BOUNCE', region => 'act', label => 'شيك مرتد', seq => 20,
-       cond => "$entry AND :P47_CHQ_STATUS = 'PENDING'", confirm => 'تسجيل الشيك مرتداً وإنشاء قيد الارتداد؟');
+       cond => "$entry AND :P47_CHQ_STATUS = 'PENDING'", confirm => 'تسجيل الشيك مرتداً وترحيل قيد الارتداد مباشرة؟');
 button(name => 'UNSETTLE', region => 'act', label => 'إلغاء التسوية', seq => 30, position => 'PREVIOUS',
-       cond => "$entry AND :P47_CHQ_STATUS IN ('CLEARED','BOUNCED') AND :P47_JNL_STATUS IN ('DRAFT','RETURNED')",
-       confirm => 'حذف قيد التسوية (غير المراجَع) وإرجاع الشيك قائماً؟');
+       cond => ":G_USER_ROLE IN ('ADMIN','APPROVER') AND :P47_CHQ_STATUS IN ('CLEARED','BOUNCED') AND NVL(:P47_JNL_STATUS, 'X') <> 'REVERSED'",
+       confirm => 'حذف قيد التسوية وإرجاع الشيك قائماً (لتصحيح تسوية خاطئة)؟');
 button(name => 'PRINT', region => 'act', label => 'طباعة الشيك', seq => 40, position => 'PREVIOUS', cond => ":P47_KIND = 'P'",
        js => $print_js->(48, 'P48_CHEQUE_ID', 'P47_CHEQUE_ID'));
 button(name => 'SHOW_JV', region => 'act', label => 'عرض قيد التسوية', seq => 50, position => 'PREVIOUS',
