@@ -136,7 +136,7 @@ item(name => 'P31_TO',   region => 'f', type => 'date', label => 'إلى', seq =
 button(name => 'GO', region => 'f', label => 'عرض', seq => 10, hot => 1);
 region(name => 'ir', title => 'القيود', type => 'ir', sql => src('p31_ir.sql'), seq => 10,
        links => { 'رقم القيد' => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:#JOURNAL_ID#' });
-branch_self();
+branch_self('P31_COMPANY_ID', 'P31_FROM', 'P31_TO');
 end_page();
 
 # =====================================================================
@@ -714,10 +714,10 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
   "IF :P80_SEPARATE IS NULL THEN :P80_SEPARATE := 'N'; END IF;"));
 # زر الطباعة يحفظ الخيارات ثم يفتح صفحة الطباعة
 out("wwv_flow_imp_page.create_page_branch(\n" . args(id => wid(nid()), branch_name => "'Print'",
-    branch_action => "'f?p=&APP_ID.:82:&SESSION.::&DEBUG.:::'", branch_point => "'AFTER_PROCESSING'",
+    branch_action => "'f?p=&APP_ID.:82:&SESSION.::&DEBUG.::P80_FROM,P80_TO,P80_LEVEL,P80_EXCLUDE_INTERCO,P80_SEPARATE:&P80_FROM.,&P80_TO.,&P80_LEVEL.,&P80_EXCLUDE_INTERCO.,&P80_SEPARATE.'", branch_point => "'AFTER_PROCESSING'",
     branch_type => "'REDIRECT_URL'", branch_sequence => 5, branch_condition_type => "'REQUEST_EQUALS_CONDITION'",
     branch_condition => "'PRINT'") . "\n);\n");
-branch_self();
+branch_self('P80_FROM', 'P80_TO', 'P80_LEVEL', 'P80_EXCLUDE_INTERCO', 'P80_SEPARATE');
 end_page();
 
 page(id => 82, name => 'طباعة ميزان المراجعة', alias => 'PRINT-TRIAL', template => 'page_minimal', css => $print_css . "\@page { size: A4; margin: 12mm; }
@@ -836,7 +836,7 @@ item(name => 'P93_ITEM_ID', region => 'f', type => 'popup', label => 'الصنف
 item(name => 'P93_WAREHOUSE_ID', region => 'f', type => 'select', label => 'المخزن', lov => $LOV{warehouses}, null => 1, seq => 20, same_line => 1, required => 1);
 button(name => 'GO', region => 'f', label => 'عرض', hot => 1);
 region(name => 'ir', title => 'حركة الصنف', type => 'ir', sql => src('p93_ir.sql'), seq => 10, cond => ':P93_ITEM_ID IS NOT NULL AND :P93_WAREHOUSE_ID IS NOT NULL');
-branch_self();
+branch_self('P93_ITEM_ID', 'P93_WAREHOUSE_ID');
 end_page();
 
 # =====================================================================
@@ -953,7 +953,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
   "IF :P126_AS_OF_DATE IS NULL THEN :P126_AS_OF_DATE := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;",
   "IF :P126_LEVEL IS NULL THEN :P126_LEVEL := 2; END IF;",
   "IF :P126_EXCLUDE IS NULL THEN :P126_EXCLUDE := 'Y'; END IF;"));
-branch_self();
+branch_self('P126_AS_OF_DATE', 'P126_LEVEL', 'P126_EXCLUDE');
 end_page();
 
 # =====================================================================
