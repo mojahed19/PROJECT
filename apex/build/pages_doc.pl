@@ -733,18 +733,36 @@ table_region(name => 'tb', title => 'tb', no_header => 1, sql => src('p80_ir.sql
 end_page();
 
 page(id => 81, name => 'كشف حساب', alias => 'STATEMENT', auth => 'IS_ACCOUNTANT');
-region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5);
-item(name => 'P81_ACCOUNT_ID', region => 'f', type => 'popup', label => 'الحساب', lov => $LOV{accounts_all}, required => 1);
-item(name => 'P81_COMPANY_ID', region => 'f', type => 'select', label => 'الشركة', lov => $LOV{companies}, null => 'الكل', seq => 20, same_line => 1);
-item(name => 'P81_FROM', region => 'f', type => 'date', label => 'من', seq => 30);
+region(name => 'f', title => 'الخيارات', type => 'static', seq => 5,
+       html => '<div class="doc-meta" style="margin-bottom:8px"><b>&P81_ACC_INFO.</b></div>');
+item(name => 'P81_ACC_INFO', region => 'f', type => 'hidden', seq => 1);
+item(name => 'P81_ACCOUNT_ID', region => 'f', type => 'popup', label => 'الحساب', lov => $LOV{accounts_all}, seq => 10, required => 1);
+item(name => 'P81_FROM', region => 'f', type => 'date', label => 'من', seq => 30, same_line => 1);
 item(name => 'P81_TO', region => 'f', type => 'date', label => 'إلى', seq => 40, same_line => 1);
-item(name => 'P81_CURRENCY', region => 'f', type => 'select', label => 'العملة', lov => $LOV{currencies}, null => 'بالعملة الأساسية', seq => 50, same_line => 1);
-button(name => 'GO', region => 'f', label => 'عرض', hot => 1);
-region(name => 'ir', title => 'كشف الحساب', type => 'ir', sql => src('p81_ir.sql'), seq => 10, cond => ':P81_ACCOUNT_ID IS NOT NULL');
+item(name => 'P81_CURRENCY', region => 'f', type => 'select', label => 'العملة', lov => $LOV{currencies}, null => 'بالعملة الأساسية', seq => 50);
+button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();', cond => ':P81_ACCOUNT_ID IS NOT NULL');
+region(name => 'ir', title => 'كشف الحساب', type => 'ir', sql => src('p81_ir.sql'), seq => 10, cond => ':P81_ACCOUNT_ID IS NOT NULL',
+       links => { 'رقم القيد' => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:#JOURNAL_ID#' });
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
   "IF :P81_FROM IS NULL THEN :P81_FROM := TO_CHAR(TRUNC(SYSDATE,'YYYY'), 'DD/MM/YYYY'); END IF;",
-  "IF :P81_TO IS NULL THEN :P81_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;"));
-branch_self();
+  "IF :P81_TO IS NULL THEN :P81_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;",
+  "IF :P81_ACCOUNT_ID IS NOT NULL THEN",
+  "  SELECT MAX('كشف حساب: ' || account_code || ' - ' || name_ar || ' (' || DECODE(acc_type, 'ASSET', 'أصول', 'LIAB', 'خصوم', 'EQUITY', 'حقوق ملكية', 'REV', 'إيرادات', 'EXP', 'مصروفات') || ')'",
+  "         || ' من ' || :P81_FROM || ' إلى ' || :P81_TO)",
+  "  INTO :P81_ACC_INFO FROM accounts WHERE account_id = :P81_ACCOUNT_ID;",
+  "END IF;"));
+check(name => 'CHECK_DATES', seq => 5, button => 'GO', code => <<'SQL');
+DECLARE l_f DATE; l_t DATE;
+BEGIN
+  IF :P81_ACCOUNT_ID IS NULL THEN RETURN 'اختر الحساب'; END IF;
+  l_f := TO_DATE(:P81_FROM, 'DD/MM/YYYY'); l_t := TO_DATE(:P81_TO, 'DD/MM/YYYY');
+  IF l_f > l_t THEN RETURN 'تاريخ البداية بعد تاريخ النهاية'; END IF;
+  RETURN NULL;
+EXCEPTION WHEN OTHERS THEN RETURN 'التاريخ غير صحيح (يوم/شهر/سنة)';
+END;
+SQL
+branch_self('P81_ACCOUNT_ID', 'P81_FROM', 'P81_TO', 'P81_CURRENCY');
 end_page();
 
 # =====================================================================

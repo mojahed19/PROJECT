@@ -61,4 +61,8 @@ CREATE TABLE budget_plan_lines (
 )]');
 END;
 /
+
+-- أسماء أنواع قيود المبيعات (شركة واحدة)
+UPDATE journal_types SET name_ar = 'فاتورة مبيعات' WHERE jt_code = 'INV';
+UPDATE journal_types SET name_ar = 'مرتجع مبيعات' WHERE jt_code = 'RET';
 COMMIT;
