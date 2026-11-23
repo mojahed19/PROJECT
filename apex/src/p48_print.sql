@@ -14,7 +14,6 @@ BEGIN
   EXCEPTION WHEN NO_DATA_FOUND THEN htp.p('<p>الشيك غير موجود</p>'); RETURN;
   END;
   IF v.voucher_type <> 'P' THEN htp.p('<p>الطباعة للشيكات الصادرة فقط</p>'); RETURN; END IF;
-  IF v.status NOT IN ('APPROVED','POSTED') THEN htp.p('<p>لا يُطبع الشيك قبل اعتماد الإذن</p>'); RETURN; END IF;
 
   BEGIN
     SELECT * INTO ly FROM cheque_layouts WHERE bank_account_id = c.bank_account_id;

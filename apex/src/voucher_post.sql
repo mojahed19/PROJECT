@@ -34,6 +34,17 @@ DECLARE
       l_r   := CASE v.voucher_type WHEN 'R' THEN l_amt ELSE 0 END;   -- مدين الحساب الوسيط في التوريد
       l_p   := CASE v.voucher_type WHEN 'P' THEN l_amt ELSE 0 END;   -- دائن الحساب الوسيط في الصرف
 
+      IF v.journal_id IS NOT NULL THEN
+        -- إذن أُعيد للمسودة بالعكس ثم اعتُمد من جديد: يُحدَّث قيده نفسه
+        l_jid := v.journal_id;
+        UPDATE journals
+        SET    journal_date = v.voucher_date, description = NVL(v.description, journal_no), status = 'POSTED',
+               total_debit = l_amt, total_credit = l_amt, reviewed_by = v.reviewed_by, reviewed_on = v.reviewed_on,
+               approved_by = v.approved_by, approved_on = v.approved_on, posted_by = :APP_USER, posted_on = SYSDATE,
+               return_note = NULL
+        WHERE  journal_id = l_jid;
+        DELETE FROM journal_lines WHERE journal_id = l_jid;
+      ELSE
       INSERT INTO journals (company_id, jt_code, journal_no, journal_date, currency_code, exchange_rate,
                             description, status, source_type, source_id, total_debit, total_credit,
                             created_by, reviewed_by, reviewed_on, approved_by, approved_on, posted_by, posted_on)
@@ -42,6 +53,7 @@ DECLARE
               'POSTED', 'VOUCHER', v.voucher_id, l_amt, l_amt,
               v.created_by, v.reviewed_by, v.reviewed_on, v.approved_by, v.approved_on, :APP_USER, SYSDATE)
       RETURNING journal_id INTO l_jid;
+      END IF;
 
       INSERT INTO journal_lines (journal_id, line_no, account_id, debit, credit, debit_base, credit_base, description)
       VALUES (l_jid, 1, l_mid, l_r, l_p, ROUND(l_r * v.exchange_rate, 2), ROUND(l_p * v.exchange_rate, 2),

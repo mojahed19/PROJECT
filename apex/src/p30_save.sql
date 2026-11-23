@@ -15,6 +15,7 @@ DECLARE
 
   l_status   VARCHAR2(10);
   l_no       VARCHAR2(30);
+  l_src      VARCHAR2(10);
   l_prefix   VARCHAR2(10);
   l_seq      NUMBER;
   l_cnt      NUMBER;
@@ -60,8 +61,10 @@ BEGIN
                  WHERE user_name = UPPER(:APP_USER) AND company_id = l_company);
   IF l_cnt = 0 THEN err('ليس لديك صلاحية على هذه الشركة'); END IF;
 
-  SELECT COUNT(*) INTO l_cnt FROM journal_types
-  WHERE  jt_code = l_jt AND manual_allowed = 'Y' AND is_active = 'Y';
+  -- نوع القيد: يدوي للقيد الجديد ، والقيد الموجود (مثل تسوية الشيكات) يحتفظ بنوعه
+  SELECT COUNT(*) INTO l_cnt FROM journal_types j
+  WHERE  j.jt_code = l_jt AND j.is_active = 'Y'
+  AND   (j.manual_allowed = 'Y' OR EXISTS (SELECT 1 FROM journals x WHERE x.journal_id = l_id AND x.jt_code = l_jt));
   IF l_cnt = 0 THEN err('نوع القيد لا يُدخل يدوياً'); END IF;
 
   IF l_date IS NOT NULL THEN
@@ -76,8 +79,9 @@ BEGIN
 
   IF l_id IS NOT NULL THEN
     BEGIN
-      SELECT status, journal_no INTO l_status, l_no
+      SELECT status, journal_no, source_type INTO l_status, l_no, l_src
       FROM   journals WHERE journal_id = l_id FOR UPDATE;
+      IF l_src NOT IN ('MANUAL','CHEQUE') THEN err('هذا القيد ناتج عن مستند آخر ويُعدَّل من مستنده'); END IF;
       IF l_status NOT IN ('DRAFT','RETURNED') THEN err('القيد ' || l_no || ' تمت مراجعته أو اعتماده أو ترحيله ولا يمكن تعديله'); END IF;
     EXCEPTION WHEN NO_DATA_FOUND THEN err('القيد غير موجود');
     END;

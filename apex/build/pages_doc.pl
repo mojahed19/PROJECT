@@ -35,7 +35,7 @@ sub doc_status_html {
 # عبارة PL/SQL تملأ معلومات المراجعة/الاعتماد وسبب الإعادة عند تحميل المستند (r = سجل المستند)
 sub wf_load {
   my $p = shift;
-  return ":${p}_RETURN_NOTE := CASE WHEN r.status = 'RETURNED' THEN r.return_note END;\n"
+  return ":${p}_RETURN_NOTE := CASE WHEN r.status IN ('RETURNED','DRAFT') THEN r.return_note END;\n"
        . ":${p}_WF_INFO := TRIM(CASE WHEN r.reviewed_by IS NOT NULL THEN 'راجعه ' || r.reviewed_by || ' ' || TO_CHAR(r.reviewed_on, 'DD/MM/YYYY HH24:MI') END"
        . " || CASE WHEN r.approved_by IS NOT NULL THEN ' - اعتمده ' || r.approved_by || ' ' || TO_CHAR(r.approved_on, 'DD/MM/YYYY HH24:MI') END);";
 }
@@ -48,7 +48,7 @@ sub wf_setup {
   item(name => "${p}_WF_NOTE",     region => $a{region}, type => 'hidden', seq => 97);
   item(name => "${p}_WF_INFO",     region => $a{region}, type => 'hidden', seq => 98);
   item(name => "${p}_RETURN_NOTE", region => $a{region}, type => 'hidden', seq => 99);
-  my ($id, $st) = (":$a{id} IS NOT NULL", ":$a{status}");
+  my ($id, $st) = (":$a{id} IS NOT NULL" . ($a{extra} ? " AND $a{extra}" : ''), ":$a{status}");
   my $r = sub { "$id AND :G_USER_ROLE IN ('ADMIN','$_[0]')" };
   button(name => 'WF_REVIEW',    region => $a{region}, label => 'مراجعة', js => "DocUtil.wf('REVIEW');", hot => 1, seq => 61,
          cond => $r->('REVIEWER') . " AND $st = 'DRAFT'");
@@ -56,12 +56,11 @@ sub wf_setup {
          cond => $r->('REVIEWER') . " AND $st = 'REVIEWED'");
   button(name => 'WF_APPROVE',   region => $a{region}, label => 'اعتماد', js => "DocUtil.wf('APPROVE');", hot => 1, seq => 63,
          cond => $r->('APPROVER') . " AND $st = 'REVIEWED'");
+  # المستند الذي يُرحّل عند الاعتماد لا يُلغى اعتماده (التصحيح بالعكس من المعتمد)
   button(name => 'WF_UNAPPROVE', region => $a{region}, label => 'إلغاء الاعتماد', js => "DocUtil.wf('UNAPPROVE');", seq => 64,
-         cond => $r->('APPROVER') . " AND $st = 'APPROVED'");
+         cond => $r->('APPROVER') . " AND $st = 'APPROVED'") unless $a{post};
   button(name => 'WF_RETURN',    region => $a{region}, label => 'إعادة للمدخل', js => "DocUtil.wf('RETURN');", seq => 65,
          cond => "$id AND ((:G_USER_ROLE IN ('ADMIN','REVIEWER') AND $st IN ('DRAFT','REVIEWED')) OR (:G_USER_ROLE IN ('ADMIN','APPROVER') AND $st IN ('REVIEWED','APPROVED')))");
-  button(name => 'WF_POST',      region => $a{region}, label => 'ترحيل', js => "DocUtil.wf('POST');", hot => 1, seq => 66,
-         cond => $r->('APPROVER') . " AND $st = 'APPROVED'") if $a{post};
   my $code = src('wf_action.sql');
   my %rep = (__ITEM__ => $a{id}, __NOTE__ => "${p}_WF_NOTE", __TABLE__ => $a{table}, __IDCOL__ => $a{idcol},
              __DOC__ => $a{doc}, __CANPOST__ => ($a{post} ? 'Y' : 'N'), __POST__ => ($a{post} // 'NULL;'));
@@ -105,17 +104,17 @@ item(name => 'P30_REF_NO',     region => 'head', label => 'المرجع', seq =>
 item(name => 'P30_DESCRIPTION', region => 'head', label => 'البيان', seq => 70, max => 500);
 region(name => 'lines', title => 'سطور القيد', type => 'static', seq => 20,
        html => "<div id=\"jv_lines\"></div>\n<div style=\"margin-top:8px\">الفرق: <span id=\"jv_diff\" class=\"jv-diff ok\">0.00</span></div>");
-my $draft = can_save('P30_STATUS') . " AND NVL(:P30_SOURCE_TYPE, 'MANUAL') = 'MANUAL'";
+my $draft = can_save('P30_STATUS') . " AND NVL(:P30_SOURCE_TYPE, 'MANUAL') IN ('MANUAL','CHEQUE')";
 button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ (Ctrl+S)', js => "jv.save('DRAFT');", hot => 1, seq => 10, cond => $draft);
 button(name => 'DELETE_DOC', region => 'lines', label => 'حذف', js => 'jv.remove();', position => 'PREVIOUS', seq => 30,
-       cond => ":P30_JOURNAL_ID IS NOT NULL AND $draft");
+       cond => ":P30_JOURNAL_ID IS NOT NULL AND " . can_save('P30_STATUS') . " AND NVL(:P30_SOURCE_TYPE, 'MANUAL') = 'MANUAL'");
 button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30::', position => 'PREVIOUS', seq => 40);
 button(name => 'PRINT', region => 'lines', label => 'طباعة', position => 'PREVIOUS', seq => 45, if_not_null => 'P30_JOURNAL_ID',
        js => "window.open(apex.util.makeApplicationUrl({pageId: 32, itemNames: ['P32_JOURNAL_ID'], itemValues: [apex.item('P30_JOURNAL_ID').getValue()]}), '_blank');");
 button(name => 'REVERSE', region => 'lines', label => 'عكس القيد', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P30_JOURNAL_ID.',
-       position => 'PREVIOUS', seq => 50, cond => ":P30_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','ENTRY')");
+       position => 'PREVIOUS', seq => 50, cond => ":P30_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','APPROVER')");
 wf_setup(page => 30, region => 'lines', table => 'journals', idcol => 'journal_id', id => 'P30_JOURNAL_ID',
-         status => 'P30_STATUS', doc => 'JOURNAL', post => <<'PLSQL');
+         status => 'P30_STATUS', doc => 'JOURNAL', extra => "NVL(:P30_SOURCE_TYPE, 'MANUAL') IN ('MANUAL','CHEQUE')", post => <<'PLSQL');
 UPDATE journals SET posted_by = :APP_USER, posted_on = SYSDATE WHERE journal_id = l_id;
 PLSQL
 process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, code => src_wf('p30_load.sql', 'P30'), cond => ':P30_JOURNAL_ID IS NOT NULL');
@@ -175,7 +174,7 @@ button(name => 'NEW', region => 'head', label => 'جديد', url => 'f?p=&APP_ID
 button(name => 'PRINT', region => 'head', label => 'طباعة', position => 'PREVIOUS', seq => 35, if_not_null => 'P40_VOUCHER_ID',
        js => $print_js->(42, 'P42_VOUCHER_ID', 'P40_VOUCHER_ID'));
 button(name => 'SHOW_JV', region => 'head', label => 'عرض القيد', url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:&P40_JOURNAL_ID.', position => 'PREVIOUS', seq => 40, cond => ":P40_STATUS IN ('POSTED','REVERSED')");
-button(name => 'REVERSE', region => 'head', label => 'عكس', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P40_JOURNAL_ID.', position => 'PREVIOUS', seq => 50, cond => ":P40_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','ENTRY')");
+button(name => 'REVERSE', region => 'head', label => 'عكس', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P40_JOURNAL_ID.', position => 'PREVIOUS', seq => 50, cond => ":P40_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','APPROVER')");
 wf_setup(page => 40, region => 'head', table => 'vouchers', idcol => 'voucher_id', id => 'P40_VOUCHER_ID',
          status => 'P40_STATUS', doc => 'VOUCHER', post => src('voucher_post.sql'));
 process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, code => src_wf('p40_load.sql', 'P40'), cond => ':P40_VOUCHER_ID IS NOT NULL');
@@ -210,7 +209,7 @@ page(id => 45, name => 'إذن شيكات', alias => 'CHEQUE-VOUCHER', title => 
        "['P45_VOUCHER_DATE','P45_BANK_ACCOUNT_ID','P45_COUNTER_ACCOUNT_ID','P45_PARTY_NAME','P45_DESCRIPTION']"));
 region(name => 'head', title => '&P45_TITLE.', type => 'static', html => doc_status_html('P45_VOUCHER_NO', 'P45_STATUS', 'رقم الإذن', 'P45'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1])
-  for (['P45_VOUCHER_ID',1],['P45_VOUCHER_TYPE',2],['P45_VOUCHER_NO',3],['P45_STATUS',4],['P45_JOURNAL_ID',5],['P45_TITLE',6],['P45_TOTAL',7]);
+  for (['P45_VOUCHER_ID',1],['P45_VOUCHER_TYPE',2],['P45_VOUCHER_NO',3],['P45_STATUS',4],['P45_JOURNAL_ID',5],['P45_TITLE',6],['P45_TOTAL',7],['P45_CHQ_COUNT',8]);
 item(name => 'P45_VOUCHER_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, required => 1);
 item(name => 'P45_BANK_ACCOUNT_ID', region => 'head', type => 'select', label => '&P45_BANK_LABEL.', null => 1, seq => 25, same_line => 1, required => 1,
      lov => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE cash_bank = 'B' AND is_active = 'Y' ORDER BY account_code");
@@ -228,11 +227,12 @@ button(name => 'PRINT', region => 'lines', label => 'طباعة الإذن', pos
        js => $print_js->(42, 'P42_VOUCHER_ID', 'P45_VOUCHER_ID'));
 button(name => 'SHOW_JV', region => 'lines', label => 'عرض القيد', url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:&P45_JOURNAL_ID.', position => 'PREVIOUS', seq => 40, cond => ":P45_STATUS IN ('POSTED','REVERSED')");
 button(name => 'SCHEDULE', region => 'lines', label => 'جدولة الشيكات', url => 'f?p=&APP_ID.:47:&SESSION.::&DEBUG.:47::', position => 'PREVIOUS', seq => 45);
+button(name => 'REVERSE', region => 'lines', label => 'عكس', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P45_JOURNAL_ID.', position => 'PREVIOUS', seq => 50, cond => ":P45_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','APPROVER')");
 wf_setup(page => 45, region => 'lines', table => 'vouchers', idcol => 'voucher_id', id => 'P45_VOUCHER_ID',
-         status => 'P45_STATUS', doc => 'VOUCHER', post => src('voucher_post.sql'));
+         status => 'P45_STATUS', doc => 'VOUCHER', extra => 'NVL(:P45_CHQ_COUNT, 0) > 0', post => src('voucher_post.sql'));
 # روابط طباعة الشيكات الصادرة بعد الاعتماد (كل شيك بمقاس الشيك البنكي)
 region(name => 'prints', title => 'طباعة الشيكات', type => 'plsql', seq => 30,
-       cond => ":P45_VOUCHER_TYPE = 'P' AND :P45_STATUS IN ('APPROVED','POSTED')", plsql => <<'PLSQL');
+       cond => ":P45_VOUCHER_TYPE = 'P' AND NVL(:P45_CHQ_COUNT, 0) > 0", plsql => <<'PLSQL');
 BEGIN
   FOR c IN (SELECT cheque_id, cheque_serial, cheque_no, amount, TO_CHAR(due_date, 'DD/MM/YYYY') due FROM cheques
             WHERE voucher_id = :P45_VOUCHER_ID ORDER BY line_no) LOOP
@@ -604,7 +604,7 @@ item(name => 'P60_JOURNAL_ID', region => 'rev', type => 'hidden', seq => 1);
 item(name => 'P60_JOURNAL_INFO', region => 'rev', type => 'hidden', seq => 2);
 item(name => 'P60_REV_DATE', region => 'rev', type => 'date', label => 'تاريخ العكس', seq => 10, required => 1);
 item(name => 'P60_REASON', region => 'rev', label => 'سبب العكس', seq => 20, same_line => 1, max => 500, required => 1);
-button(name => 'REVERSE', region => 'rev', label => 'عكس القيد', hot => 1, confirm => 'هل تريد عكس هذا القيد؟ لا يمكن التراجع');
+button(name => 'REVERSE', region => 'rev', label => 'عكس القيد', hot => 1, confirm => 'عكس القيد؟ القيود اليدوية وقيود الشيكات والأذونات تعود مسودة للتصحيح ثم المراجعة والاعتماد، والفواتير تُعكس بقيد عكسي', cond => ":G_USER_ROLE IN ('ADMIN','APPROVER')");
 table_region(name => 'done', title => 'القيود المعكوسة', sql => src('p60_reversed.sql'), seq => 40);
 process(name => 'INFO', point => 'BEFORE_HEADER', seq => 10, code => join("\n",
   "IF :P60_REV_DATE IS NULL THEN :P60_REV_DATE := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;",

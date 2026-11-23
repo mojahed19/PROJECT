@@ -29,6 +29,7 @@ BEGIN
       WHEN 'APPROVE' THEN
         IF NOT has('APPROVER') THEN l_err := 'الاعتماد من صلاحية المعتمد';
         ELSIF l_st <> 'REVIEWED' THEN l_err := 'لا يُعتمد إلا المستند المُراجَع';
+        ELSIF '__CANPOST__' = 'Y' THEN l_new := 'POSTED'; l_msg := 'تم الاعتماد والترحيل';
         ELSE l_new := 'APPROVED'; l_msg := 'تم الاعتماد'; END IF;
       WHEN 'UNAPPROVE' THEN
         IF NOT has('APPROVER') THEN l_err := 'إلغاء الاعتماد من صلاحية المعتمد';
@@ -53,7 +54,8 @@ BEGIN
     RETURN;
   END IF;
 
-  IF l_req = 'POST' THEN
+  -- الترحيل يتم مباشرة عند الاعتماد
+  IF l_new = 'POSTED' THEN
     __POST__
   END IF;
 

@@ -66,21 +66,33 @@ BEGIN
     UPDATE purchase_invoices SET status = 'REVERSED' WHERE pinv_id = l_main.source_id;
     UPDATE stock_trans SET status = 'REVERSED' WHERE source_type = 'PURCHASE' AND source_id = l_main.source_id;
 
-  ELSIF l_main.source_type = 'VOUCHER' THEN
-    l_msg := reverse_one(l_main.journal_id);
-    UPDATE vouchers SET status = 'REVERSED' WHERE voucher_id = l_main.source_id;
-
-  ELSIF l_main.source_type = 'CHEQUE' THEN
-    -- عكس قيد تسوية شيك: يعود الشيك قائماً
-    l_msg := reverse_one(l_main.journal_id);
-    UPDATE cheques SET status = 'PENDING', settle_date = NULL, settle_bank_id = NULL, settle_journal_id = NULL, settled_by = NULL
-    WHERE  cheque_id = l_main.source_id AND settle_journal_id = l_main.journal_id;
+  ELSIF l_main.source_type IN ('VOUCHER','MANUAL','CHEQUE') THEN
+    -- العكس من المعتمد: يعود المستند مسودة (يخرج من الأرصدة) ليُصحح ثم يُراجع ويُعتمد من جديد
+    UPDATE journals
+    SET    status = 'DRAFT', reviewed_by = NULL, reviewed_on = NULL, approved_by = NULL, approved_on = NULL,
+           posted_by = NULL, posted_on = NULL, return_note = SUBSTR(:P60_REASON, 1, 500)
+    WHERE  journal_id = l_main.journal_id;
+    IF l_main.source_type = 'VOUCHER' THEN
+      UPDATE vouchers
+      SET    status = 'DRAFT', reviewed_by = NULL, reviewed_on = NULL, approved_by = NULL, approved_on = NULL,
+             return_note = SUBSTR(:P60_REASON, 1, 500)
+      WHERE  voucher_id = l_main.source_id;
+      INSERT INTO doc_actions (doc_type, doc_id, action, from_status, to_status, note, action_by)
+      VALUES ('VOUCHER', l_main.source_id, 'REVERSE', 'POSTED', 'DRAFT', SUBSTR(:P60_REASON, 1, 500), :APP_USER);
+    END IF;
+    INSERT INTO doc_actions (doc_type, doc_id, action, from_status, to_status, note, action_by)
+    VALUES ('JOURNAL', l_main.journal_id, 'REVERSE', 'POSTED', 'DRAFT', SUBSTR(:P60_REASON, 1, 500), :APP_USER);
+    l_msg := NULL;
+    apex_application.g_print_success_message := 'تم عكس ' || CASE l_main.source_type WHEN 'VOUCHER' THEN 'الإذن' ELSE 'القيد' END
+               || ' ' || l_main.journal_no || ' وإعادته مسودة للتصحيح ثم المراجعة والاعتماد';
 
   ELSE
     l_msg := reverse_one(l_main.journal_id);
   END IF;
 
-  apex_application.g_print_success_message := 'تم عكس القيد ' || l_main.journal_no || ' بالقيد ' || l_msg;
+  IF l_msg IS NOT NULL THEN
+    apex_application.g_print_success_message := 'تم عكس القيد ' || l_main.journal_no || ' بالقيد ' || l_msg;
+  END IF;
   :P60_JOURNAL_ID := NULL;
   :P60_REASON     := NULL;
 END;

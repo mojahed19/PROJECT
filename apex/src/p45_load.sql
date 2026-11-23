@@ -12,5 +12,6 @@ BEGIN
   :P45_STATUS             := r.status;
   :P45_JOURNAL_ID         := r.journal_id;
   :P45_TOTAL              := TO_CHAR(r.total_amount, 'FM999G999G999G990D00');
+  SELECT COUNT(*) INTO :P45_CHQ_COUNT FROM cheques WHERE voucher_id = r.voucher_id;
   __WF__
 END;

@@ -10,7 +10,7 @@ BEGIN
   SELECT COUNT(*) INTO l_cnt FROM vouchers v JOIN cheques c ON c.voucher_id = v.voucher_id
   WHERE  j.source_type = 'VOUCHER' AND v.voucher_id = j.source_id AND c.status <> 'PENDING';
   IF l_cnt > 0 THEN RETURN 'شيكات هذا الإذن تمت تسوية بعضها. ألغِ التسويات أو اعكس قيودها أولاً'; END IF;
-  IF :G_USER_ROLE NOT IN ('ADMIN','ENTRY') THEN RETURN 'عكس القيود من صلاحية المدخل'; END IF;
+  IF :G_USER_ROLE NOT IN ('ADMIN','APPROVER') THEN RETURN 'عكس القيود من صلاحية المعتمد'; END IF;
   SELECT COUNT(*) INTO l_cnt FROM dual
   WHERE :G_USER_ROLE = 'ADMIN' OR j.company_id = :G_COMPANY_ID
      OR EXISTS (SELECT 1 FROM user_companies WHERE user_name = UPPER(:APP_USER) AND company_id = j.company_id);
