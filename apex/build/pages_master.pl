@@ -136,9 +136,39 @@ crud(list => 212, form => 213, title => 'الوحدات', table => 'units', alia
 
 crud(list => 210, form => 211, title => 'الأصناف وأسعارها', table => 'items', alias => 'ITEMS', auth => 'IS_STORE', order => 't.item_code', cols => [
   ['ITEM_CODE', 'الكود', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1], ['NAME_EN', 'الاسم الإنجليزي'],
-  ['BASE_UNIT_ID', 'الوحدة الأساسية', 'select', $units, 1, 'NUMBER'], ['BARCODE', 'الباركود'],
-  ['PURCHASE_PRICE', 'سعر الشراء (للوحدة الأساسية)', 'num'], ['SALE_PRICE', 'سعر البيع (للوحدة الأساسية)', 'num'],
-  ['REORDER_LEVEL', 'حد الطلب', 'num'], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]]);
+  ['BARCODE', 'الباركود'],
+  ['BASE_UNIT_ID', 'الوحدة الصغرى', 'select', $units, 1, 'NUMBER'],
+  ['PURCHASE_PRICE', 'سعر الشراء (الوحدة الصغرى)', 'num'], ['SALE_PRICE', 'سعر البيع (الوحدة الصغرى)', 'num'],
+  ['BIG_UNIT_ID', 'الوحدة الكبرى', 'select', $units, undef, 'NUMBER'], ['BIG_FACTOR', 'تعادل (عدد الوحدات الصغرى)', 'num'],
+  ['BIG_PURCHASE_PRICE', 'سعر الشراء (الوحدة الكبرى)', 'num'], ['BIG_SALE_PRICE', 'سعر البيع (الوحدة الكبرى)', 'num'],
+  ['EXPIRY_DATE', 'تاريخ الصلاحية', 'date'],
+  ['REORDER_LEVEL', 'حد الطلب', 'num'], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]],
+  # وحدات الصنف تُحدَّث تلقائياً من الوحدة الصغرى والكبرى
+  extra => sub {
+    my $F = shift;
+    check(name => 'CHECK_UNITS', seq => 5, when_req => 'CREATE,SAVE', code => <<"SQL");
+RETURN CASE
+  WHEN :P${F}_BIG_UNIT_ID IS NOT NULL AND :P${F}_BIG_UNIT_ID = :P${F}_BASE_UNIT_ID THEN 'الوحدة الكبرى يجب أن تختلف عن الصغرى'
+  WHEN :P${F}_BIG_UNIT_ID IS NOT NULL AND NVL(TO_NUMBER(:P${F}_BIG_FACTOR), 0) <= 1 THEN 'أدخل كم تعادل الوحدة الكبرى من الوحدات الصغرى (أكبر من 1)'
+  WHEN NVL(TO_NUMBER(:P${F}_SALE_PRICE), 0) <= 0 THEN 'أدخل سعر البيع للوحدة الصغرى'
+  WHEN NVL(TO_NUMBER(:P${F}_PURCHASE_PRICE), 0) <= 0 THEN 'أدخل سعر الشراء للوحدة الصغرى'
+END;
+SQL
+    process(name => 'SYNC_UNITS', seq => 15, when_req => 'CREATE,SAVE', code => <<"SQL");
+DECLARE
+  l_id NUMBER;
+BEGIN
+  SELECT item_id INTO l_id FROM items WHERE item_code = :P${F}_ITEM_CODE;
+  MERGE INTO item_units u
+  USING (SELECT item_id, base_unit_id unit_id, 1 factor FROM items WHERE item_id = l_id
+         UNION ALL
+         SELECT item_id, big_unit_id, big_factor FROM items WHERE item_id = l_id AND big_unit_id IS NOT NULL AND big_factor > 1) s
+  ON (u.item_id = s.item_id AND u.unit_id = s.unit_id)
+  WHEN MATCHED THEN UPDATE SET u.factor = s.factor
+  WHEN NOT MATCHED THEN INSERT (item_id, unit_id, factor) VALUES (s.item_id, s.unit_id, s.factor);
+END;
+SQL
+  });
 
 crud(list => 236, form => 237, title => 'وحدات الأصناف', table => 'item_units', alias => 'ITEM-UNITS', auth => 'IS_STORE', order => 't.item_id, t.factor', cols => [
   ['ITEM_ID', 'الصنف', 'popup', $items, 1, 'NUMBER'], ['UNIT_ID', 'الوحدة', 'select', $units, 1, 'NUMBER'],

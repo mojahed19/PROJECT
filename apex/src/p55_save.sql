@@ -14,6 +14,7 @@ DECLARE
 
   PROCEDURE err (p VARCHAR2) IS BEGIN l_errs.EXTEND; l_errs(l_errs.COUNT) := p; END;
 BEGIN
+  l_action := 'DRAFT';   -- الترحيل يتم عند الاعتماد
   SELECT h.pinv_id, h.invoice_type, h.company_id, h.invoice_date, h.supplier_inv_no, h.pay_type, h.pay_method,
          h.supplier_account_id, h.supplier_name, h.warehouse_id, h.currency_code, h.exchange_rate,
          NVL(h.discount_amount, 0), h.description
@@ -82,7 +83,7 @@ BEGIN
   IF l_id IS NOT NULL THEN
     BEGIN
       SELECT status, invoice_no INTO l_status, l_no FROM purchase_invoices WHERE pinv_id = l_id FOR UPDATE;
-      IF l_status <> 'DRAFT' THEN err('الفاتورة مرحّلة ولا يمكن تعديلها'); END IF;
+      IF l_status NOT IN ('DRAFT','RETURNED') THEN err('الفاتورة ' || l_no || ' تمت مراجعتها أو اعتمادها ولا يمكن تعديلها'); END IF;
     EXCEPTION WHEN NO_DATA_FOUND THEN err('الفاتورة غير موجودة'); END;
   END IF;
 
@@ -159,7 +160,20 @@ BEGIN
            qty NUMBER PATH '$.QTY', price NUMBER PATH '$.PRICE', discount NUMBER PATH '$.DISCOUNT')) j
   JOIN   item_units u ON u.item_id = j.item_id AND u.unit_id = j.unit_id;
 
-  UPDATE purchase_invoices SET gross_amount = l_gross, discount_amount = l_disc, net_amount = l_net
+  -- سعر الشراء من بيانات الصنف ولا يُعدَّل يدوياً
+  UPDATE purchase_invoice_lines il
+  SET    price = (SELECT CASE WHEN u.unit_id = i.big_unit_id AND i.big_purchase_price > 0 THEN i.big_purchase_price ELSE NULLIF(i.purchase_price, 0) * u.factor END
+                  FROM items i JOIN item_units u ON u.item_id = i.item_id AND u.unit_id = il.unit_id
+                  WHERE i.item_id = il.item_id)
+  WHERE  il.pinv_id = l_id;
+  SELECT COUNT(*) INTO l_cnt FROM purchase_invoice_lines WHERE pinv_id = l_id AND NVL(price, 0) <= 0;
+  IF l_cnt > 0 THEN raise_application_error(-20031, 'يوجد صنف بدون سعر شراء في صفحة الأصناف وأسعارها'); END IF;
+  UPDATE purchase_invoice_lines SET line_total = ROUND(qty * price - NVL(discount, 0), 4) WHERE pinv_id = l_id;
+  SELECT SUM(line_total) INTO l_gross FROM purchase_invoice_lines WHERE pinv_id = l_id;
+  l_net := l_gross - l_disc;
+
+  UPDATE purchase_invoices SET gross_amount = l_gross, discount_amount = l_disc, net_amount = l_net,
+         status = 'DRAFT', return_note = NULL
   WHERE pinv_id = l_id;
 
   ------------------------------------------------------------------ الترحيل: المخزون + القيد

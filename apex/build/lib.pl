@@ -400,6 +400,7 @@ sub button {
 
 sub process {
   my %p = @_;
+  $p{code} =~ s/__WF([0-9]+)__/main::wf_load("P$1")/ge if defined $p{code};   # معلومات المراجعة والاعتماد في تحميل المستند
   push @main::PLSQL, ["P$CUR_PAGE process $p{name} cond", "BEGIN IF $p{cond} THEN NULL; END IF; END;"] if $p{cond} && !$p{when_req};
   my $id = nid();
   my %type;

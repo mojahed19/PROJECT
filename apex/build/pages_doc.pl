@@ -382,9 +382,13 @@ region(name => 'lines', title => 'الأصناف', type => 'static', seq => 20, 
   الصافي بعد الخصم الإضافي: <span id="inv_net">0.00</span>
 </div>
 HTML
-$draft = ":P50_STATUS IS NULL OR :P50_STATUS = 'DRAFT'";
+$draft = "(:P50_STATUS IS NULL OR :P50_STATUS = 'DRAFT') AND :P50_SHIFT_ID IS NOT NULL AND :G_USER_ROLE IN ('ADMIN','ENTRY')";
 button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ مسودة (Ctrl+S)', js => "inv.save('DRAFT');", seq => 10, cond => $draft);
-button(name => 'POST', region => 'lines', label => 'حفظ وترحيل', js => "inv.save('POST');", hot => 1, seq => 20, cond => $draft);
+button(name => 'POST', region => 'lines', label => 'حفظ الفاتورة', js => "inv.save('POST');", hot => 1, seq => 20, cond => $draft);
+# البيع داخل وردية مفتوحة
+region(name => 'noshift', title => 'لا توجد وردية مفتوحة', type => 'static', seq => 1, cond => ':P50_SHIFT_ID IS NULL AND :P50_INVOICE_ID IS NULL',
+       html => '<div class="doc-warn">لا يمكن البيع قبل فتح وردية. <a href="f?p=&APP_ID.:58:&SESSION.::&DEBUG.:58::">افتح وردية من هنا</a></div>');
+item(name => 'P50_SHIFT_ID', region => 'lines', type => 'hidden', seq => 99);
 button(name => 'PRINT_A4', region => 'lines', label => 'طباعة A4', js => "inv.print('A4');", seq => 25, cond => ':P50_INVOICE_ID IS NOT NULL');
 button(name => 'PRINT_80', region => 'lines', label => 'طباعة إيصال (إبسون)', js => "inv.print('80');", seq => 26, cond => ':P50_INVOICE_ID IS NOT NULL');
 button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:50:&SESSION.::&DEBUG.:50:P50_INVOICE_TYPE:&P50_INVOICE_TYPE.', position => 'PREVIOUS', seq => 30);
@@ -409,6 +413,7 @@ END;
 SQL
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\n",
   "IF :P50_INVOICE_TYPE IS NULL THEN :P50_INVOICE_TYPE := 'SALE'; END IF;",
+  "SELECT MAX(shift_id) INTO :P50_SHIFT_ID FROM sales_shifts WHERE user_name = :APP_USER AND status = 'OPEN';",
   "IF :P50_PAY_TYPE IS NULL THEN :P50_PAY_TYPE := 'CASH'; END IF;",
   "IF :P50_INVOICE_ID IS NULL THEN",
   "  IF :P50_STATUS IS NULL THEN :P50_STATUS := 'DRAFT'; END IF;",
@@ -435,7 +440,7 @@ page(id => 55, name => 'فاتورة مشتريات', alias => 'PURCHASE', title
      js => src('p55.js'),
      onload => "pur.init();\n" . sprintf($SAVE_KEYS, 'P55_STATUS', 'P55_STATUS', 'DRAFT',
        "['P55_INVOICE_DATE','P55_SUPPLIER_INV_NO','P55_PAY_TYPE','P55_SUPPLIER_ACCOUNT_ID','P55_SUPPLIER_NAME','P55_WAREHOUSE_ID','P55_CURRENCY_CODE','P55_EXCHANGE_RATE','P55_DISCOUNT_AMOUNT','P55_DESCRIPTION']"));
-region(name => 'head', title => '&P55_TITLE.', type => 'static', html => doc_status_html('P55_INVOICE_NO', 'P55_STATUS', 'رقم الفاتورة'));
+region(name => 'head', title => '&P55_TITLE.', type => 'static', html => doc_status_html('P55_INVOICE_NO', 'P55_STATUS', 'رقم الفاتورة', 'P55'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1]) for (['P55_PINV_ID',1],['P55_INVOICE_TYPE',2],['P55_INVOICE_NO',3],['P55_STATUS',4],['P55_JOURNAL_ID',5],['P55_TITLE',6]);
 item(name => 'P55_COMPANY_ID', region => 'head', type => 'hidden', seq => 7);
 item(name => 'P55_LOADED_ID', region => 'head', type => 'hidden', seq => 8);
@@ -460,19 +465,22 @@ region(name => 'lines', title => 'الأصناف', type => 'static', seq => 20, 
   الصافي بعد الخصم الإضافي: <span id="pur_net">0.00</span>
 </div>
 HTML
-$draft = ":P55_STATUS IS NULL OR :P55_STATUS = 'DRAFT'";
-button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ مسودة (Ctrl+S)', js => "pur.save('DRAFT');", seq => 10, cond => $draft);
-button(name => 'POST', region => 'lines', label => 'حفظ وترحيل', js => "pur.save('POST');", hot => 1, seq => 20, cond => $draft);
+$draft = can_save('P55_STATUS');
+button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ (Ctrl+S)', js => "pur.save('DRAFT');", hot => 1, seq => 10, cond => $draft);
+wf_setup(page => 55, region => 'lines', table => 'purchase_invoices', idcol => 'pinv_id', id => 'P55_PINV_ID',
+         status => 'P55_STATUS', doc => 'PURCHASE', post => src('p55_post.sql'));
 button(name => 'PRINT_A4', region => 'lines', label => 'طباعة A4', js => 'pur.print();', seq => 25, cond => ':P55_PINV_ID IS NOT NULL');
 button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:55:&SESSION.::&DEBUG.:55:P55_INVOICE_TYPE:&P55_INVOICE_TYPE.', position => 'PREVIOUS', seq => 30);
 button(name => 'SHOW_JV', region => 'lines', label => 'عرض القيد', url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:&P55_JOURNAL_ID.', position => 'PREVIOUS', seq => 40, cond => ":P55_STATUS IN ('POSTED','REVERSED')");
-button(name => 'REVERSE', region => 'lines', label => 'عكس', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P55_JOURNAL_ID.', position => 'PREVIOUS', seq => 50, cond => ":P55_STATUS = 'POSTED'");
+button(name => 'REVERSE', region => 'lines', label => 'عكس', url => 'f?p=&APP_ID.:60:&SESSION.::&DEBUG.::P60_JOURNAL_ID:&P55_JOURNAL_ID.', position => 'PREVIOUS', seq => 50, cond => ":P55_STATUS = 'POSTED' AND :G_USER_ROLE IN ('ADMIN','APPROVER')");
 process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10,
         cond => ":P55_PINV_ID IS NOT NULL AND :P55_PINV_ID <> NVL(:P55_LOADED_ID, 'x')", code => <<'SQL');
-DECLARE p purchase_invoices%ROWTYPE;
+DECLARE p purchase_invoices%ROWTYPE; r purchase_invoices%ROWTYPE;
 BEGIN
   :P55_LOADED_ID := :P55_PINV_ID;
   SELECT * INTO p FROM purchase_invoices WHERE pinv_id = :P55_PINV_ID;
+  r := p;
+  __WF55__
   IF NOT (:G_USER_ROLE = 'ADMIN' OR p.company_id = :G_COMPANY_ID) THEN
     raise_application_error(-20001, 'ليس لديك صلاحية على هذه الفاتورة');
   END IF;
@@ -746,7 +754,7 @@ page(id => 90, name => 'حركة مخزون', alias => 'STOCK', title => '&P90_T
      js => src('p90.js'),
      onload => "stk.init();\n" . sprintf($SAVE_KEYS, 'P90_STATUS', 'P90_STATUS', 'DRAFT',
        "['P90_COMPANY_ID','P90_TRANS_DATE','P90_WAREHOUSE_ID','P90_TO_WAREHOUSE_ID','P90_COUNTER_ACCOUNT_ID','P90_CURRENCY_CODE','P90_EXCHANGE_RATE','P90_DESCRIPTION']"));
-region(name => 'head', title => '&P90_TITLE.', type => 'static', html => doc_status_html('P90_TRANS_NO', 'P90_STATUS', 'الرقم'));
+region(name => 'head', title => '&P90_TITLE.', type => 'static', html => doc_status_html('P90_TRANS_NO', 'P90_STATUS', 'الرقم', 'P90'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1]) for (['P90_TRANS_ID',1],['P90_TRANS_TYPE',2],['P90_TRANS_NO',3],['P90_STATUS',4],['P90_TITLE',5]);
 item(name => 'P90_COMPANY_ID', region => 'head', type => 'select', label => 'الشركة', lov => $LOV{companies}, seq => 10, required => 1);
 item(name => 'P90_TRANS_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, same_line => 1, required => 1);
@@ -759,14 +767,17 @@ item(name => 'P90_CURRENCY_CODE', region => 'head', type => 'select', label => '
 item(name => 'P90_EXCHANGE_RATE', region => 'head', label => 'سعر الصرف', seq => 70, same_line => 1, cond => ":P90_TRANS_TYPE IN ('RECEIPT','OPENING')");
 item(name => 'P90_DESCRIPTION', region => 'head', label => 'البيان', seq => 80, max => 500);
 region(name => 'lines', title => 'الأصناف', type => 'static', seq => 20, html => '<div id="st_lines"></div>');
-$draft = ":P90_STATUS IS NULL OR :P90_STATUS = 'DRAFT'";
-button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ مسودة (Ctrl+S)', js => "stk.save('DRAFT');", seq => 10, cond => $draft);
-button(name => 'POST', region => 'lines', label => 'حفظ وترحيل', js => "stk.save('POST');", hot => 1, seq => 20, cond => $draft);
+$draft = can_save('P90_STATUS');
+button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ (Ctrl+S)', js => "stk.save('DRAFT');", hot => 1, seq => 10, cond => $draft);
+wf_setup(page => 90, region => 'lines', table => 'stock_trans', idcol => 'trans_id', id => 'P90_TRANS_ID',
+         status => 'P90_STATUS', doc => 'STOCK', post => src('p90_post.sql'));
 button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:90:&SESSION.::&DEBUG.:90:P90_TRANS_TYPE:&P90_TRANS_TYPE.', position => 'PREVIOUS', seq => 30);
 process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, cond => ':P90_TRANS_ID IS NOT NULL', code => <<'SQL');
-DECLARE t stock_trans%ROWTYPE;
+DECLARE t stock_trans%ROWTYPE; r stock_trans%ROWTYPE;
 BEGIN
   SELECT * INTO t FROM stock_trans WHERE trans_id = :P90_TRANS_ID;
+  r := t;
+  __WF90__
   IF NOT (:G_USER_ROLE = 'ADMIN' OR t.company_id = :G_COMPANY_ID) THEN
     raise_application_error(-20001, 'ليس لديك صلاحية على هذه الحركة');
   END IF;
@@ -929,6 +940,71 @@ end_page();
 
 # =====================================================================
 # 1 لوحة المدير العام
+# =====================================================================
+# 58 الوردية (فتح / إغلاق / مراجعة / اعتماد) + 59 قائمة الورديات
+# =====================================================================
+page(id => 58, name => 'الوردية', alias => 'SHIFT', auth => 'IS_STORE');
+region(name => 'head', title => 'الوردية', type => 'static', seq => 10,
+       html => doc_status_html('P58_SHIFT_NO', 'P58_STATUS', 'رقم الوردية', 'P58') . '<div class="doc-meta">&P58_INFO.</div>');
+item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1])
+  for (['P58_SHIFT_ID',1],['P58_SHIFT_NO',2],['P58_STATUS',3],['P58_USER',4],['P58_INFO',5],['P58_HAS_OPEN',6]);
+item(name => 'P58_NOTES', region => 'head', label => 'ملاحظات الإغلاق', seq => 20, max => 500, cond => ":P58_STATUS IN ('OPEN','RETURNED')");
+button(name => 'OPEN_SHIFT', region => 'head', label => 'فتح وردية جديدة', hot => 1, seq => 5,
+       cond => "NVL(:P58_HAS_OPEN, 'N') = 'N' AND :G_USER_ROLE IN ('ADMIN','ENTRY')");
+button(name => 'CLOSE_SHIFT', region => 'head', label => 'إغلاق الوردية', hot => 1, seq => 6,
+       cond => ":P58_STATUS IN ('OPEN','RETURNED') AND (:P58_USER = :APP_USER OR :G_USER_ROLE = 'ADMIN')",
+       confirm => 'إغلاق الوردية وإرسالها للمراجعة والاعتماد؟');
+button(name => 'SALES', region => 'head', label => 'فاتورة مبيعات', seq => 7, cond => ":P58_STATUS = 'OPEN' AND :P58_USER = :APP_USER",
+       url => 'f?p=&APP_ID.:50:&SESSION.::&DEBUG.:50:P50_INVOICE_TYPE:SALE');
+button(name => 'LIST', region => 'head', label => 'قائمة الورديات', seq => 8, position => 'PREVIOUS', url => 'f?p=&APP_ID.:59:&SESSION.::&DEBUG.:59::');
+wf_setup(page => 58, region => 'head', table => 'sales_shifts', idcol => 'shift_id', id => 'P58_SHIFT_ID',
+         status => 'P58_STATUS', doc => 'SHIFT', post => src('p58_post.sql'));
+table_region(name => 'sum', title => 'ملخص الوردية حسب طريقة الدفع والحساب', sql => src('p58_summary.sql'), seq => 20, cond => ':P58_SHIFT_ID IS NOT NULL');
+table_region(name => 'inv', title => 'فواتير الوردية', sql => src('p58_invoices.sql'), seq => 30, cond => ':P58_SHIFT_ID IS NOT NULL');
+process(name => 'LOAD', point => 'BEFORE_HEADER', seq => 10, code => src_wf('p58_load.sql', 'P58'));
+process(name => 'OPEN_SHIFT', seq => 10, button => 'OPEN_SHIFT', code => src('p58_open.sql'));
+process(name => 'CLOSE_SHIFT', seq => 20, button => 'CLOSE_SHIFT', code => src('p58_close.sql'));
+branch_self('P58_SHIFT_ID');
+end_page();
+
+page(id => 59, name => 'قائمة الورديات', alias => 'SHIFTS', auth => 'IS_STORE');
+region(name => 'f', title => 'بحث', type => 'static', html => '', seq => 5);
+item(name => 'P59_STATUS', region => 'f', type => 'select', label => 'الحالة', null => 'الكل', submit => 1,
+     lov => "SELECT 'مفتوحة' d, 'OPEN' r FROM dual UNION ALL SELECT 'مغلقة - بانتظار المراجعة', 'DRAFT' FROM dual UNION ALL SELECT 'معادة للبائع', 'RETURNED' FROM dual UNION ALL SELECT 'مُراجَعة - بانتظار الاعتماد', 'REVIEWED' FROM dual UNION ALL SELECT 'معتمدة ومرحّلة', 'POSTED' FROM dual");
+region(name => 'ir', title => 'الورديات', type => 'ir', sql => src('p59_ir.sql'), seq => 10,
+       links => { 'رقم الوردية' => 'f?p=&APP_ID.:58:&SESSION.::&DEBUG.:58:P58_SHIFT_ID:#SHIFT_ID#' });
+end_page();
+
+# =====================================================================
+# 52 تقرير المبيعات اليومي: حسب المستخدم وطريقة الدفع والحساب المدفوع به
+# =====================================================================
+page(id => 52, name => 'تقرير المبيعات اليومي', alias => 'DAILY-SALES', auth => 'IS_STORE');
+region(name => 'f', title => 'الفترة', type => 'static', html => '', seq => 5);
+item(name => 'P52_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 10);
+item(name => 'P52_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 20, same_line => 1);
+item(name => 'P52_USER', region => 'f', type => 'select', label => 'المستخدم', seq => 30, same_line => 1, null => 'كل المستخدمين',
+     lov => "SELECT full_name || ' (' || user_name || ')' d, user_name r FROM app_users ORDER BY full_name");
+button(name => 'GO', region => 'f', label => 'عرض', seq => 10, hot => 1);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
+table_region(name => 'user',   title => 'حسب المستخدم', sql => src('p52_user.sql'), seq => 10);
+table_region(name => 'method', title => 'حسب طريقة الدفع', sql => src('p52_method.sql'), seq => 20);
+table_region(name => 'acc',    title => 'حسب الحساب المدفوع به (الخزينة / البنك / العملاء)', sql => src('p52_account.sql'), seq => 30);
+region(name => 'ir', title => 'تفاصيل الفواتير', type => 'ir', sql => src('p52_detail.sql'), seq => 40);
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 10, code => join("\n", date_default('P52_FROM'), date_default('P52_TO')));
+branch_self('P52_FROM', 'P52_TO', 'P52_USER');
+end_page();
+
+# =====================================================================
+# 94 أصناف قاربت انتهاء صلاحيتها
+# =====================================================================
+page(id => 94, name => 'أصناف قاربت انتهاء الصلاحية', alias => 'EXPIRY', auth => 'IS_STORE');
+region(name => 'f', title => 'الفترة', type => 'static', html => '', seq => 5);
+item(name => 'P94_MONTHS', region => 'f', type => 'select', label => 'تنتهي خلال', seq => 10, submit => 1,
+     lov => "SELECT LEVEL || ' شهر' d, LEVEL r FROM dual CONNECT BY LEVEL <= 12");
+region(name => 'ir', title => 'الأصناف المنتهية أو التي تنتهي خلال الفترة', type => 'ir', sql => src('p94_ir.sql'), seq => 10);
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 10, code => "IF :P94_MONTHS IS NULL THEN :P94_MONTHS := 3; END IF;");
+end_page();
+
 # =====================================================================
 page(id => 1, name => 'الرئيسية', alias => 'HOME');
 region(name => 'f', title => 'لوحة المدير العام', type => 'static', html => '', seq => 5);

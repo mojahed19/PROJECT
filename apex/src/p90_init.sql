@@ -9,7 +9,7 @@ BEGIN
            'bal'  VALUE NVL(b.qty_base, 0),
            'cost' VALUE NVL(b.avg_cost, 0),
            'units' VALUE (SELECT JSON_ARRAYAGG(JSON_OBJECT('v' VALUE u.unit_id, 't' VALUE un.name_ar,
-                                                           'factor' VALUE u.factor) ORDER BY u.factor)
+                                                           'factor' VALUE u.factor, 'price' VALUE CASE WHEN u.unit_id = i.big_unit_id AND i.big_purchase_price > 0 THEN i.big_purchase_price ELSE NULLIF(i.purchase_price, 0) * u.factor END) ORDER BY u.factor)
                           FROM item_units u JOIN units un ON un.unit_id = u.unit_id
                           WHERE u.item_id = i.item_id) FORMAT JSON
          ) ORDER BY i.item_code RETURNING CLOB)

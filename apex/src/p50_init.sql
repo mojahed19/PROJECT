@@ -18,7 +18,7 @@ BEGIN
                                    'v'      VALUE u.unit_id,
                                    't'      VALUE un.name_ar,
                                    'factor' VALUE u.factor,
-                                   'price'  VALUE NVL(p.price, NULLIF(i.sale_price, 0) * u.factor)) ORDER BY u.factor)
+                                   'price'  VALUE NVL(p.price, CASE WHEN u.unit_id = i.big_unit_id AND i.big_sale_price > 0 THEN i.big_sale_price ELSE NULLIF(i.sale_price, 0) * u.factor END)) ORDER BY u.factor)
                           FROM   item_units u
                           JOIN   units un ON un.unit_id = u.unit_id
                           LEFT JOIN price_list_items p

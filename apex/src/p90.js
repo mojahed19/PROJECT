@@ -13,20 +13,29 @@ var stk = {
 
     stk.grid = new JsonLines({
       container: '#st_lines',
-      readOnly : status !== 'DRAFT',
+      readOnly : !DocUtil.canEdit(status),
       columns  : [
         {name: 'ITEM_ID',   label: 'الصنف',  type: 'lov', lov: 'items', required: true, width: '24em'},
-        {name: 'UNIT_ID',   label: 'الوحدة', type: 'select', nullText: false, required: true, options: stk.unitsOf, width: '8em'},
+        {name: 'UNIT_ID',   label: 'الوحدة', type: 'select', nullText: false, required: true, options: stk.unitsOf, width: '8em', readonly: type === 'OPENING'},
         {name: 'BAL',       label: 'الرصيد الحالي', type: 'display', decimals: 2, noSubmit: true, width: '8em'},
         {name: 'QTY',       label: type === 'COUNT' ? 'الكمية الفعلية' : 'الكمية',
          type: 'number', decimals: 2, required: true, width: '8em'},
-        {name: 'UNIT_COST', label: 'تكلفة الوحدة', type: 'number', decimals: 4, width: '9em',
+        {name: 'UNIT_COST', label: 'تكلفة الوحدة', type: 'number', decimals: 4, width: '9em', readonly: type === 'OPENING',
          hidden: type !== 'RECEIPT' && type !== 'OPENING'},
         {name: 'VALUE',     label: 'القيمة', type: 'display', decimals: 2, total: true, noSubmit: true,
          hidden: type !== 'RECEIPT' && type !== 'OPENING'}
       ],
       onChange: function (row, col) {
-        if (col === 'ITEM_ID') { var u = stk.unitsOf(row); row.UNIT_ID = row['ITEM_ID$unit'] || (u.length ? u[0].v : null); }
+        if (col === 'ITEM_ID') {
+          var u = stk.unitsOf(row);
+          // إشعار الإضافة: الوحدة الكبرى وسعر شرائها تلقائياً
+          row.UNIT_ID = row['ITEM_ID$unit'] || (u.length ? (type === 'OPENING' ? u[u.length - 1].v : u[0].v) : null);
+        }
+        if (type === 'OPENING' && (col === 'ITEM_ID' || col === 'UNIT_ID')) {
+          var uu = stk.unitsOf(row).filter(function (x) { return String(x.v) === String(row.UNIT_ID); })[0];
+          if (uu && uu.price != null) row.UNIT_COST = uu.price;
+          if (!row.QTY && row.ITEM_ID) row.QTY = 1;
+        }
         var it = stk.grid.lovRecord('items', row.ITEM_ID);
         row.BAL = it ? it.bal / stk.factorOf(row) : null;           // الرصيد بالوحدة المختارة
         row.VALUE = (row.QTY || 0) * (row.UNIT_COST || 0);

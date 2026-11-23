@@ -10,13 +10,13 @@ var inv = {
     var status = apex.item('P50_STATUS').getValue() || 'DRAFT';
     inv.grid = new JsonLines({
       container: '#inv_lines',
-      readOnly : status !== 'DRAFT',
+      readOnly : status !== 'DRAFT' || !DocUtil.canEdit(status),
       columns  : [
         {name: 'ITEM_ID',    label: 'الصنف (كود / اسم / باركود)', type: 'lov', lov: 'items', required: true, width: '26em'},
-        {name: 'UNIT_ID',    label: 'الوحدة',   type: 'select', required: true, nullText: false, options: inv.units, width: '8em'},
+        {name: 'UNIT_ID',    label: 'الوحدة',   type: 'select', required: true, nullText: false, options: inv.units, width: '8em', readonly: true},
         {name: 'BAL',        label: 'الرصيد',   type: 'display', decimals: 2, noSubmit: true, width: '7em'},
         {name: 'QTY',        label: 'الكمية',   type: 'number', decimals: 2, required: true, width: '7em'},
-        {name: 'PRICE',      label: 'السعر',    type: 'number', decimals: 2, required: true, width: '9em'},
+        {name: 'PRICE',      label: 'السعر',    type: 'number', decimals: 2, required: true, width: '9em', readonly: true},
         {name: 'DISCOUNT',   label: 'الخصم',    type: 'number', decimals: 2, total: true, width: '7em'},
         {name: 'LINE_TOTAL', label: 'الإجمالي', type: 'display', decimals: 2, total: true, noSubmit: true}
       ],

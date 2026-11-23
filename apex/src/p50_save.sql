@@ -17,6 +17,7 @@ DECLARE
   l_gross NUMBER := 0; l_net NUMBER; l_lines NUMBER := 0; l_jt VARCHAR2(10); l_sign NUMBER;
   l_jid NUMBER; l_so NUMBER; l_cogs NUMBER; l_base NUMBER; l_line NUMBER := 0;
   l_sales_acc NUMBER; l_ret_acc NUMBER; l_cogs_acc NUMBER; l_inv_acc NUMBER;
+  l_shift NUMBER;
 
   PROCEDURE err (p VARCHAR2) IS BEGIN l_errs.EXTEND; l_errs(l_errs.COUNT) := p; END;
 
@@ -69,6 +70,9 @@ BEGIN
   BEGIN l_date := TO_DATE(l_date_s, 'DD/MM/YYYY'); EXCEPTION WHEN OTHERS THEN err('التاريخ غير صحيح'); END;
 
   IF :G_USER_ROLE NOT IN ('ADMIN','ENTRY') THEN err('ليس لديك صلاحية على فواتير المبيعات'); END IF;
+  -- البيع داخل وردية مفتوحة للمستخدم
+  SELECT MAX(shift_id) INTO l_shift FROM sales_shifts WHERE user_name = :APP_USER AND status = 'OPEN';
+  IF l_shift IS NULL THEN err('افتح وردية أولاً من صفحة الوردية'); END IF;
 
   -- طريقة الدفع والحساب: نقدي = خزينة أو بنك ، آجل = حساب العميل (خارجي أو فرع)
   -- نوع العميل وطريقة النقد تُستنتج من الحساب المختار
@@ -163,16 +167,16 @@ BEGIN
   IF l_id IS NULL THEN
     INSERT INTO invoices (company_id, customer_type, customer_company_id, invoice_type, invoice_no, invoice_date,
                           pay_type, pay_method, account_id, customer_name, warehouse_id, price_list_id,
-                          currency_code, exchange_rate, description, created_by)
+                          currency_code, exchange_rate, description, created_by, shift_id)
     VALUES (l_company, l_ctype, l_cust, l_type, l_no, l_date, l_pay, l_method, l_acc, l_cname, l_wh, l_pl,
-            l_cur, l_rate, l_desc, :APP_USER)
+            l_cur, l_rate, l_desc, :APP_USER, l_shift)
     RETURNING invoice_id INTO l_id;
   ELSE
     UPDATE invoices
     SET customer_type = l_ctype, customer_company_id = l_cust, invoice_no = l_no, invoice_date = l_date,
         pay_type = l_pay, pay_method = l_method, account_id = l_acc, customer_name = l_cname,
         warehouse_id = l_wh, price_list_id = l_pl, currency_code = l_cur, exchange_rate = l_rate,
-        description = l_desc
+        description = l_desc, shift_id = l_shift
     WHERE invoice_id = l_id;
     DELETE FROM invoice_lines WHERE invoice_id = l_id;
   END IF;
@@ -184,6 +188,19 @@ BEGIN
            item_id NUMBER PATH '$.ITEM_ID', unit_id NUMBER PATH '$.UNIT_ID',
            qty NUMBER PATH '$.QTY', price NUMBER PATH '$.PRICE', discount NUMBER PATH '$.DISCOUNT')) j
   JOIN   item_units u ON u.item_id = j.item_id AND u.unit_id = j.unit_id;
+
+  -- السعر من بيانات الصنف (أو قائمة الأسعار) ولا يُعدَّل يدوياً
+  UPDATE invoice_lines il
+  SET    price = (SELECT NVL(p.price, CASE WHEN u.unit_id = i.big_unit_id AND i.big_sale_price > 0 THEN i.big_sale_price ELSE NULLIF(i.sale_price, 0) * u.factor END)
+                  FROM items i JOIN item_units u ON u.item_id = i.item_id AND u.unit_id = il.unit_id
+                  LEFT JOIN price_list_items p ON p.price_list_id = l_pl AND p.item_id = i.item_id AND p.unit_id = il.unit_id
+                  WHERE i.item_id = il.item_id)
+  WHERE  il.invoice_id = l_id;
+  SELECT COUNT(*) INTO l_cnt FROM invoice_lines WHERE invoice_id = l_id AND NVL(price, 0) <= 0;
+  IF l_cnt > 0 THEN raise_application_error(-20031, 'يوجد صنف بدون سعر بيع في صفحة الأصناف وأسعارها'); END IF;
+  UPDATE invoice_lines SET line_total = ROUND(qty * price - NVL(discount, 0), 4) WHERE invoice_id = l_id;
+  SELECT SUM(line_total) INTO l_gross FROM invoice_lines WHERE invoice_id = l_id;
+  l_net := l_gross - l_disc;
 
   UPDATE invoices SET gross_amount = l_gross, discount_amount = l_disc, net_amount = l_net WHERE invoice_id = l_id;
 
@@ -212,10 +229,10 @@ BEGIN
     l_base      := ROUND(l_net * l_rate, 2);
 
     INSERT INTO journals (company_id, jt_code, journal_no, journal_date, currency_code, exchange_rate,
-                          description, status, source_type, source_id, created_by, posted_by, posted_on)
+                          description, status, source_type, source_id, created_by)
     VALUES (l_company, l_jt, l_no, l_date, l_cur, l_rate,
             NVL(l_desc, CASE l_type WHEN 'SALE' THEN 'فاتورة مبيعات ' ELSE 'مرتجع مبيعات ' END || l_no || ' - ' || l_cname),
-            'POSTED', 'INVOICE', l_id, :APP_USER, :APP_USER, SYSDATE)
+            'DRAFT', 'INVOICE', l_id, :APP_USER)   -- يُرحّل عند اعتماد الوردية
     RETURNING journal_id INTO l_jid;
 
     IF l_type = 'SALE' THEN

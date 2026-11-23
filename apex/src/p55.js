@@ -10,20 +10,20 @@ var pur = {
     var status = apex.item('P55_STATUS').getValue() || 'DRAFT';
     pur.grid = new JsonLines({
       container: '#pur_lines',
-      readOnly : status !== 'DRAFT',
+      readOnly : !DocUtil.canEdit(status),
       columns  : [
         {name: 'ITEM_ID',    label: 'الصنف (كود / اسم / باركود)', type: 'lov', lov: 'items', required: true, width: '26em'},
-        {name: 'UNIT_ID',    label: 'الوحدة',   type: 'select', required: true, nullText: false, options: pur.units, width: '8em'},
+        {name: 'UNIT_ID',    label: 'الوحدة',   type: 'select', required: true, nullText: false, options: pur.units, width: '8em', readonly: true},
         {name: 'BAL',        label: 'الرصيد',   type: 'display', decimals: 2, noSubmit: true, width: '7em'},
         {name: 'QTY',        label: 'الكمية',   type: 'number', decimals: 2, required: true, width: '7em'},
-        {name: 'PRICE',      label: 'سعر الشراء', type: 'number', decimals: 2, required: true, width: '9em'},
+        {name: 'PRICE',      label: 'سعر الشراء', type: 'number', decimals: 2, required: true, width: '9em', readonly: true},
         {name: 'DISCOUNT',   label: 'الخصم',    type: 'number', decimals: 2, total: true, width: '7em'},
         {name: 'LINE_TOTAL', label: 'الإجمالي', type: 'display', decimals: 2, total: true, noSubmit: true}
       ],
       onChange: function (row, col, g) {
         if (col === 'ITEM_ID') {
           var u = pur.units(row, g);
-          row.UNIT_ID = row['ITEM_ID$unit'] || (u.length ? u[0].v : null);   // وحدة الباركود أو الأصغر
+          row.UNIT_ID = row['ITEM_ID$unit'] || (u.length ? u[u.length - 1].v : null);   // وحدة الباركود أو الوحدة الكبرى
           col = 'UNIT_ID';
         }
         var unit = pur.units(row, g).filter(function (x) { return String(x.v) === String(row.UNIT_ID); })[0];

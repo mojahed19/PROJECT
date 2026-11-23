@@ -226,3 +226,6 @@ body, .t-Body, .t-Header, .t-Region, .t-Button, input, select, textarea {
 .doc-wf:empty { display: none; }
 .doc-status--::after { content: 'جديد'; }
 .doc-status-- { background: #eef2f7; color: #445; }
+.doc-warn { padding: 8px 12px; border-radius: 6px; background: #fff4ce; color: #7a5b00; font-weight: 600; }
+.doc-status--OPEN { background: #e3f0fb; color: #0b5394; }
+.doc-status--OPEN::after { content: 'مفتوحة'; }

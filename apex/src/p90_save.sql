@@ -29,6 +29,7 @@ DECLARE
             GREATEST(ROUND(p_amount, 2), 0), GREATEST(-ROUND(p_amount, 2), 0), l_desc);
   END;
 BEGIN
+  l_action := 'DRAFT';   -- الترحيل يتم عند الاعتماد
   SELECT h.trans_id, h.trans_type, h.company_id, h.trans_date, h.warehouse_id, h.to_warehouse_id,
          h.counter_account_id, h.currency_code, h.exchange_rate, h.description
   INTO   l_id, l_type, l_company, l_date_s, l_wh, l_to_wh, l_counter, l_cur, l_rate, l_desc
@@ -69,7 +70,7 @@ BEGIN
   IF l_id IS NOT NULL THEN
     BEGIN
       SELECT status, trans_no INTO l_status, l_no FROM stock_trans WHERE trans_id = l_id FOR UPDATE;
-      IF l_status <> 'DRAFT' THEN err('الحركة مرحّلة ولا يمكن تعديلها'); END IF;
+      IF l_status NOT IN ('DRAFT','RETURNED') THEN err('الحركة ' || l_no || ' تمت مراجعتها أو اعتمادها ولا يمكن تعديلها'); END IF;
     EXCEPTION WHEN NO_DATA_FOUND THEN err('الحركة غير موجودة'); END;
   END IF;
 
@@ -148,6 +149,16 @@ BEGIN
          CASE WHEN l_type IN ('RECEIPT','OPENING') THEN NVL(j.unit_cost, 0) * l_rate / u.factor
                      ELSE NVL(b.avg_cost, 0) END AS cost_base
          FROM dual) x;
+
+  -- إشعار الإضافة: التكلفة = سعر شراء الصنف ولا تُعدَّل يدوياً
+  IF l_type = 'OPENING' THEN
+    UPDATE stock_trans_lines sl
+    SET    unit_cost = (SELECT CASE WHEN u.unit_id = i.big_unit_id AND i.big_purchase_price > 0 THEN i.big_purchase_price ELSE NULLIF(i.purchase_price, 0) * u.factor END FROM items i JOIN item_units u ON u.item_id = i.item_id AND u.unit_id = sl.unit_id WHERE i.item_id = sl.item_id)
+    WHERE  sl.trans_id = l_id;
+    UPDATE stock_trans_lines SET cost_base = NVL(unit_cost, 0) * l_rate / factor, value_base = ROUND(qty_base * NVL(unit_cost, 0) * l_rate / factor, 4)
+    WHERE  trans_id = l_id;
+  END IF;
+  UPDATE stock_trans SET status = 'DRAFT', return_note = NULL WHERE trans_id = l_id;
 
   -- التحويل: سطور الوجهة بنفس التكلفة
   IF l_type = 'TRANSFER' THEN
