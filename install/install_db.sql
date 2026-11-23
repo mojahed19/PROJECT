@@ -32,6 +32,10 @@ PROMPT ===== 11_cheque_bank_serial.sql
 @db/11_cheque_bank_serial.sql
 PROMPT ===== 12_items_shifts.sql
 @db/12_items_shifts.sql
+PROMPT ===== 13_hr_types_incentive.sql
+@db/13_hr_types_incentive.sql
+PROMPT ===== 14_budget_plan.sql
+@db/14_budget_plan.sql
 
 PROMPT ===== Invalid objects check
 SELECT object_type, object_name FROM user_objects WHERE status = 'INVALID';

@@ -187,11 +187,34 @@ crud(list => 216, form => 217, title => 'المخازن', table => 'warehouses',
 crud(list => 220, form => 221, title => 'الدرجات الوظيفية', table => 'job_grades', alias => 'GRADES', auth => 'IS_HR', order => 't.grade_code', cols => [
   ['GRADE_CODE', 'الرمز', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1], ['BASIC_SALARY', 'الراتب الأساسي', 'num', undef, 1]]);
 
+my $emp_types = "SELECT 'موظف' d, 'EMPLOYEE' r FROM dual UNION ALL SELECT 'عامل', 'WORKER' FROM dual UNION ALL SELECT 'عسكري', 'SOLDIER' FROM dual UNION ALL SELECT 'ضابط', 'OFFICER' FROM dual";
+my $ranks = "SELECT DECODE(rank_type, 'SOLDIER', 'عسكري', 'ضابط') || ' - ' || name_ar d, rank_id r FROM military_ranks ORDER BY rank_type DESC, sort_order";
 crud(list => 222, form => 223, title => 'الموظفون', table => 'employees', alias => 'EMPLOYEES', auth => 'IS_HR', order => 't.emp_no', cols => [
   ['EMP_NO', 'الرقم', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1],
+  ['EMP_TYPE', 'النوع', 'select', $emp_types, 1], ['RANK_ID', 'الرتبة (للعسكري والضابط)', 'select', $ranks, undef, 'NUMBER'],
   ['GRADE_ID', 'الدرجة', 'select', $grades, 1, 'NUMBER'],
   ['HIRE_DATE', 'تاريخ التعيين', 'date'], ['BASIC_SALARY', 'أساسي خاص (فارغ = أساسي الدرجة)', 'num'],
-  ['BANK_ACCOUNT', 'الحساب البنكي'], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]]);
+  ['BANK_ACCOUNT', 'الحساب البنكي'], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]],
+  extra => sub {
+    my $F = shift;
+    check(name => 'CHECK_RANK', seq => 5, when_req => 'CREATE,SAVE', code => <<"SQL");
+DECLARE l_type VARCHAR2(10);
+BEGIN
+  IF :P${F}_EMP_TYPE IN ('SOLDIER','OFFICER') THEN
+    IF :P${F}_RANK_ID IS NULL THEN RETURN 'اختر الرتبة للعسكري أو الضابط'; END IF;
+    SELECT rank_type INTO l_type FROM military_ranks WHERE rank_id = :P${F}_RANK_ID;
+    IF l_type <> :P${F}_EMP_TYPE THEN RETURN 'الرتبة لا تناسب نوع الموظف (رتب العسكريين غير رتب الضباط)'; END IF;
+  ELSIF :P${F}_RANK_ID IS NOT NULL THEN
+    RETURN 'الرتبة للعسكري والضابط فقط';
+  END IF;
+  RETURN NULL;
+END;
+SQL
+  });
+
+crud(list => 230, form => 231, title => 'الرتب العسكرية', table => 'military_ranks', alias => 'RANKS', auth => 'IS_HR', order => 't.rank_type DESC, t.sort_order', cols => [
+  ['RANK_TYPE', 'النوع', 'select', "SELECT 'عسكري' d, 'SOLDIER' r FROM dual UNION ALL SELECT 'ضابط', 'OFFICER' FROM dual", 1],
+  ['NAME_AR', 'الرتبة', 'text', undef, 1], ['SORT_ORDER', 'الترتيب', 'num', undef, 1]]);
 
 crud(list => 224, form => 225, title => 'بنود العلاوات والحوافز والخصومات', table => 'allowance_types', alias => 'ALLOWANCES', auth => 'IS_HR', order => 't.code', cols => [
   ['CODE', 'الرمز', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1],
@@ -478,5 +501,14 @@ crud(list => 240, form => 241, title => 'مقاسات طباعة الشيك', ta
   ['WORDS_WIDTH', 'عرض سطر المبلغ كتابة', 'num', undef, 1],
   ['AMOUNT_TOP', 'المبلغ رقماً: من الأعلى', 'num', undef, 1], ['AMOUNT_RIGHT', 'المبلغ رقماً: من اليمين', 'num', undef, 1],
   ['FONT_SIZE', 'حجم الخط (px)', 'num', undef, 1]]);
+
+# الإدارات وبنود الميزانية (لكل بند رقم إيضاح)
+crud(list => 242, form => 243, title => 'الإدارات', table => 'departments', alias => 'DEPARTMENTS', auth => 'IS_GM', order => 't.dept_code', cols => [
+  ['DEPT_CODE', 'الكود', 'text', undef, 1], ['NAME_AR', 'اسم الإدارة', 'text', undef, 1], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]]);
+crud(list => 244, form => 245, title => 'بنود الميزانية والإيضاحات', table => 'budget_items', alias => 'BUDGET-ITEMS', auth => 'IS_GM', order => 't.sort_order, t.note_no', cols => [
+  ['NOTE_NO', 'رقم الإيضاح', 'text', undef, 1], ['NAME_AR', 'البند', 'text', undef, 1],
+  ['ITEM_TYPE', 'النوع', 'select', "SELECT 'مصروفات' d, 'EXP' r FROM dual UNION ALL SELECT 'إيرادات', 'REV' FROM dual", 1],
+  ['ACCOUNT_ID', 'الحساب (لحساب الفعلي، يشمل ما تحته)', 'popup', $LOV{accounts_all}, undef, 'NUMBER'],
+  ['SORT_ORDER', 'الترتيب', 'num', undef, 1], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]]);
 
 1;

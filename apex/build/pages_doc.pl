@@ -1006,6 +1006,87 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 10, code => "IF :P9
 end_page();
 
 # =====================================================================
+# 105 الحافز السنوي (النسبة × المرتبات المصروفة خلال السنة) + 106 القائمة
+# =====================================================================
+page(id => 105, name => 'الحافز السنوي', alias => 'ANNUAL-INCENTIVE', auth => 'IS_HR',
+     onload => sprintf($SAVE_KEYS, 'P105_STATUS', '', '', "['P105_FY_YEAR','P105_PERCENT','P105_BASIS','P105_EMP_TYPE','P105_DESCRIPTION']"));
+region(name => 'head', title => 'الحافز السنوي', type => 'static', seq => 10,
+       html => doc_status_html('P105_INC_NO', 'P105_STATUS', 'رقم الحافز', 'P105') . '<div class="doc-meta">الإجمالي: <b>&P105_TOTAL.</b></div>');
+item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1])
+  for (['P105_INC_ID',1],['P105_INC_NO',2],['P105_STATUS',3],['P105_JOURNAL_ID',4],['P105_TOTAL',5]);
+item(name => 'P105_FY_YEAR', region => 'head', type => 'select', label => 'السنة', lov => $LOV{years}, seq => 10, required => 1);
+item(name => 'P105_PERCENT', region => 'head', label => 'النسبة %', seq => 20, same_line => 1, required => 1);
+item(name => 'P105_BASIS', region => 'head', type => 'select', label => 'أساس الحساب', seq => 30, same_line => 1,
+     lov => "SELECT 'المرتب الأساسي المصروف' d, 'BASIC' r FROM dual UNION ALL SELECT 'إجمالي الاستحقاقات المصروفة', 'GROSS' FROM dual");
+item(name => 'P105_EMP_TYPE', region => 'head', type => 'select', label => 'نوع الموظفين', seq => 40, null => 'الكل',
+     lov => "SELECT 'موظف' d, 'EMPLOYEE' r FROM dual UNION ALL SELECT 'عامل', 'WORKER' FROM dual UNION ALL SELECT 'عسكري', 'SOLDIER' FROM dual UNION ALL SELECT 'ضابط', 'OFFICER' FROM dual");
+item(name => 'P105_DESCRIPTION', region => 'head', label => 'البيان', seq => 50, same_line => 1, max => 500);
+button(name => 'CALC', region => 'head', label => 'حساب وحفظ', hot => 1, seq => 10, cond => can_save('P105_STATUS'));
+button(name => 'NEW', region => 'head', label => 'جديد', url => 'f?p=&APP_ID.:105:&SESSION.::&DEBUG.:105::', position => 'PREVIOUS', seq => 30);
+button(name => 'LIST', region => 'head', label => 'قائمة الحوافز', url => 'f?p=&APP_ID.:106:&SESSION.::&DEBUG.:106::', position => 'PREVIOUS', seq => 35);
+button(name => 'SHOW_JV', region => 'head', label => 'عرض القيد', position => 'PREVIOUS', seq => 40, cond => ":P105_STATUS = 'POSTED'",
+       url => 'f?p=&APP_ID.:30:&SESSION.::&DEBUG.:30:P30_JOURNAL_ID:&P105_JOURNAL_ID.');
+wf_setup(page => 105, region => 'head', table => 'annual_incentives', idcol => 'inc_id', id => 'P105_INC_ID',
+         status => 'P105_STATUS', doc => 'ANNUAL_INC', post => src('p105_post.sql'));
+table_region(name => 'lines', title => 'الموظفون ومبالغ الحافز', sql => src('p105_lines.sql'), seq => 20, cond => ':P105_INC_ID IS NOT NULL');
+process(name => 'LOAD', point => 'BEFORE_HEADER', seq => 10, code => src_wf('p105_load.sql', 'P105'), cond => ':P105_INC_ID IS NOT NULL');
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, cond => ':P105_INC_ID IS NULL', code => join("\n",
+  "IF :P105_FY_YEAR IS NULL THEN :P105_FY_YEAR := EXTRACT(YEAR FROM SYSDATE); END IF;",
+  "IF :P105_BASIS IS NULL THEN :P105_BASIS := 'BASIC'; END IF;", ":P105_STATUS := NULL;"));
+process(name => 'CALC', seq => 10, button => 'CALC', code => src('p105_calc.sql'));
+branch_self('P105_INC_ID');
+end_page();
+
+page(id => 106, name => 'قائمة الحوافز السنوية', alias => 'ANNUAL-INCENTIVES', auth => 'IS_HR');
+region(name => 'ir', title => 'الحوافز السنوية', type => 'ir', sql => src('p106_ir.sql'), seq => 10,
+       links => { 'الرقم' => 'f?p=&APP_ID.:105:&SESSION.::&DEBUG.:105:P105_INC_ID:#INC_ID#' });
+end_page();
+
+# =====================================================================
+# 122 الخطة (الموازنة التقديرية) للإدارات بالأرباع + 123 تقرير الإيضاحات
+# =====================================================================
+page(id => 122, name => 'الخطة التقديرية للإدارات', alias => 'DEPT-PLAN', auth => 'IS_ACCOUNTANT',
+     js => src('p122.js'),
+     onload => "plan.init();\n" . sprintf($SAVE_KEYS, 'P122_STATUS', '', '', "['P122_FY_YEAR','P122_DEPT_ID','P122_DESCRIPTION']"));
+region(name => 'head', title => 'الخطة التقديرية', type => 'static', seq => 10,
+       html => '<div class="doc-meta">الحالة: <span class="doc-status doc-status--&P122_STATUS.">&P122_STATUS.</span>'
+             . '<span class="doc-wf">&P122_WF_INFO.</span><span class="doc-note">&P122_RETURN_NOTE.</span></div>');
+item(name => 'P122_PLAN_ID', region => 'head', type => 'hidden', seq => 1);
+item(name => 'P122_STATUS',  region => 'head', type => 'hidden', seq => 2);
+item(name => 'P122_FY_YEAR', region => 'head', type => 'select', label => 'السنة', lov => $LOV{years}, submit => 1, seq => 10, required => 1);
+item(name => 'P122_DEPT_ID', region => 'head', type => 'select', label => 'الإدارة', null => 1, submit => 1, seq => 20, same_line => 1, required => 1,
+     lov => "SELECT dept_code || ' - ' || name_ar d, dept_id r FROM departments WHERE is_active = 'Y' ORDER BY dept_code");
+item(name => 'P122_DESCRIPTION', region => 'head', label => 'البيان', seq => 30, same_line => 1, max => 500);
+region(name => 'lines', title => 'بنود الميزانية بالأرباع', type => 'static', seq => 20, cond => ':P122_DEPT_ID IS NOT NULL',
+       html => '<div id="plan_lines" style="overflow-x:auto"></div>');
+button(name => 'SAVE', region => 'lines', label => 'حفظ (Ctrl+S)', js => 'plan.save();', hot => 1, seq => 10, cond => can_save('P122_STATUS'));
+button(name => 'REPORT', region => 'lines', label => 'تقرير الإيضاحات', position => 'PREVIOUS', seq => 30,
+       url => 'f?p=&APP_ID.:123:&SESSION.::&DEBUG.:123:P123_FY_YEAR:&P122_FY_YEAR.');
+wf_setup(page => 122, region => 'lines', table => 'budget_plans', idcol => 'plan_id', id => 'P122_PLAN_ID',
+         status => 'P122_STATUS', doc => 'BUDGET_PLAN');
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5,
+        code => "IF :P122_FY_YEAR IS NULL THEN :P122_FY_YEAR := TO_CHAR(SYSDATE, 'YYYY'); END IF;");
+process(name => 'LOAD', point => 'BEFORE_HEADER', seq => 10, code => src_wf('p122_load.sql', 'P122'));
+ajax('INIT_DATA', src('p122_init.sql'));
+ajax('SAVE_DOC',  src('p122_save.sql'));
+branch_self('P122_PLAN_ID', 'P122_FY_YEAR', 'P122_DEPT_ID');
+end_page();
+
+page(id => 123, name => 'تقرير الخطة حسب الإيضاح', alias => 'PLAN-NOTES', auth => 'IS_ACCOUNTANT');
+region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5);
+item(name => 'P123_FY_YEAR', region => 'f', type => 'select', label => 'السنة', lov => $LOV{years}, submit => 1, seq => 10);
+item(name => 'P123_BITEM_ID', region => 'f', type => 'select', label => 'الإيضاح', null => 'كل الإيضاحات', submit => 1, seq => 20, same_line => 1,
+     lov => "SELECT note_no || ' - ' || name_ar d, bitem_id r FROM budget_items ORDER BY sort_order, note_no");
+item(name => 'P123_ONLY_APPROVED', region => 'f', type => 'select', label => 'الخطط', submit => 1, seq => 30, same_line => 1,
+     lov => "SELECT 'كل الخطط' d, 'N' r FROM dual UNION ALL SELECT 'المعتمدة فقط', 'Y' FROM dual");
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 10, js => 'window.print();');
+table_region(name => 'rep', title => 'الخطة بالأرباع لكل إيضاح: الإدارات ثم الإجمالي والفعلي والانحراف', sql => src('p123_report.sql'), seq => 10);
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P123_FY_YEAR IS NULL THEN :P123_FY_YEAR := TO_CHAR(SYSDATE, 'YYYY'); END IF;",
+  "IF :P123_ONLY_APPROVED IS NULL THEN :P123_ONLY_APPROVED := 'N'; END IF;"));
+end_page();
+
+# =====================================================================
 page(id => 1, name => 'الرئيسية', alias => 'HOME');
 region(name => 'f', title => 'لوحة المدير العام', type => 'static', html => '', seq => 5);
 item(name => 'P1_COMPANY_ID', region => 'f', type => 'select', label => 'الشركة', lov => $LOV{companies}, null => 'كل الشركات', submit => 1);
