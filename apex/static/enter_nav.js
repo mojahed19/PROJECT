@@ -86,9 +86,14 @@
     },
     prev:  function (el) { return move(el, -1); },
     focus: focusField,
+    // أول حقل عند فتح الصفحة: نتخطى حقول التاريخ حتى لا ينفتح التقويم تلقائياً بمجرد الدخول
     first: function (scope) {
       var list = fieldsIn(typeof scope === 'string' ? document.querySelector(scope) : (scope || document.body));
-      focusField(list[0]);
+      var nonDate = list.filter(function (el) {
+        return !(el.closest('a-date-picker, .a-DatePicker, .apex-item-datepicker') ||
+                 (el.classList && el.classList.contains('apex-item-datepicker')));
+      });
+      focusField(nonDate[0] || list[0]);
     }
   };
 })();
