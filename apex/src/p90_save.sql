@@ -45,7 +45,9 @@ BEGIN
   IF l_type NOT IN ('RECEIPT','OPENING') OR l_cur IS NULL THEN l_cur := l_base_cur; l_rate := 1; END IF;
   IF l_cur = l_base_cur THEN l_rate := 1; END IF;
 
-  IF l_type NOT IN ('RECEIPT','ISSUE','TRANSFER','COUNT','OPENING') OR l_type IS NULL THEN err('نوع الحركة غير صحيح'); END IF;
+  IF l_type NOT IN ('RECEIPT','ISSUE','TRANSFER','COUNT','OPENING','DAMAGE','DAMAGE_WO') OR l_type IS NULL THEN err('نوع الحركة غير صحيح'); END IF;
+  -- تصفير التوالف بقرار المدير فقط
+  IF l_type = 'DAMAGE_WO' AND :G_USER_ROLE <> 'ADMIN' THEN err('تصفير التوالف من صلاحية مدير النظام فقط'); END IF;
   BEGIN l_date := TO_DATE(l_date_s, 'DD/MM/YYYY'); EXCEPTION WHEN OTHERS THEN err('التاريخ غير صحيح'); END;
 
   SELECT COUNT(*) INTO l_cnt FROM dual
@@ -89,6 +91,21 @@ BEGIN
     IF l_type IN ('RECEIPT','OPENING') AND NVL(r.unit_cost, 0) <= 0 THEN err('السطر ' || r.line_no || ': أدخل تكلفة الوحدة'); END IF;
   END LOOP;
   IF l_lines = 0 THEN err('أدخل صنفاً واحداً على الأقل'); END IF;
+
+  -- التصفير: لا يتجاوز رصيد التوالف غير المصفّر في المخزن
+  IF l_type = 'DAMAGE_WO' THEN
+    FOR r IN (SELECT j.item_id, i.item_code, SUM(j.qty * u.factor) need, NVL(MAX(d.qty_base), 0) bal
+              FROM JSON_TABLE(l_clob, '$.lines[*]' COLUMNS (
+                     item_id NUMBER PATH '$.ITEM_ID', unit_id NUMBER PATH '$.UNIT_ID', qty NUMBER PATH '$.QTY')) j
+              JOIN item_units u ON u.item_id = j.item_id AND u.unit_id = j.unit_id
+              JOIN items i ON i.item_id = j.item_id
+              LEFT JOIN v_damaged_balance d ON d.item_id = j.item_id AND d.warehouse_id = l_wh
+              GROUP BY j.item_id, i.item_code) LOOP
+      IF r.need > r.bal THEN
+        err('الصنف ' || r.item_code || ': رصيد التوالف ' || r.bal || ' أقل من كمية التصفير ' || r.need);
+      END IF;
+    END LOOP;
+  END IF;
 
   IF l_type IN ('ISSUE','TRANSFER') AND l_action = 'POST' THEN
     FOR r IN (SELECT j.item_id, i.item_code, SUM(j.qty * u.factor) need, NVL(MAX(b.qty_base), 0) bal
@@ -145,13 +162,14 @@ BEGIN
   CROSS APPLY (SELECT
          CASE WHEN l_type IN ('RECEIPT','OPENING') THEN j.qty * u.factor
                      WHEN l_type = 'COUNT' THEN j.qty * u.factor - NVL(b.qty_base, 0)
+                     WHEN l_type = 'DAMAGE_WO' THEN 0                 -- التصفير لا يغيّر الكمية
                      ELSE -(j.qty * u.factor) END AS qty_base,
          CASE WHEN l_type IN ('RECEIPT','OPENING') THEN NVL(j.unit_cost, 0) * l_rate / u.factor
                      ELSE NVL(b.avg_cost, 0) END AS cost_base
          FROM dual) x;
 
-  -- إشعار الإضافة: التكلفة = سعر شراء الصنف ولا تُعدَّل يدوياً
-  IF l_type = 'OPENING' THEN
+  -- إشعار الإضافة والتوالف: التكلفة = سعر شراء الصنف ولا تُعدَّل يدوياً
+  IF l_type IN ('OPENING','DAMAGE','DAMAGE_WO') THEN
     UPDATE stock_trans_lines sl
     SET    unit_cost = (SELECT CASE WHEN u.unit_id = i.big_unit_id AND i.big_purchase_price > 0 THEN i.big_purchase_price ELSE NULLIF(i.purchase_price, 0) * u.factor END FROM items i JOIN item_units u ON u.item_id = i.item_id AND u.unit_id = sl.unit_id WHERE i.item_id = sl.item_id)
     WHERE  sl.trans_id = l_id;
@@ -174,7 +192,7 @@ BEGIN
     SELECT SUM(value_base) INTO l_val FROM stock_trans_lines WHERE trans_id = l_id AND warehouse_id = l_wh;
 
     -- إشعار الإضافة (بضاعة أول المدة) لا يُنشئ قيداً
-    IF l_type NOT IN ('TRANSFER','OPENING') AND ROUND(NVL(l_val, 0), 2) <> 0 THEN
+    IF l_type NOT IN ('TRANSFER','OPENING','DAMAGE','DAMAGE_WO') AND ROUND(NVL(l_val, 0), 2) <> 0 THEN
       INSERT INTO journals (company_id, jt_code, journal_no, journal_date, currency_code, exchange_rate,
                             description, status, source_type, source_id, created_by, posted_by, posted_on)
       VALUES (l_company, 'ADJ', l_no, l_date, l_base_cur, 1, NVL(l_desc, l_no), 'POSTED', 'MANUAL', l_id,

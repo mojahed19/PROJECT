@@ -818,7 +818,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 20, code => join("\
   "  IF :P90_STATUS IS NULL THEN :P90_STATUS := 'DRAFT'; END IF;",
   '  ' . date_default('P90_TRANS_DATE'), '  ' . base_cur_default('P90_CURRENCY_CODE', 'P90_EXCHANGE_RATE'),
   'END IF;',
-  ":P90_TITLE := CASE :P90_TRANS_TYPE WHEN 'RECEIPT' THEN 'استلام بضاعة' WHEN 'ISSUE' THEN 'صرف داخلي' WHEN 'TRANSFER' THEN 'تحويل بين المخازن' WHEN 'COUNT' THEN 'تسوية جرد' WHEN 'OPENING' THEN 'إشعار إضافة - بضاعة أول المدة' ELSE 'حركة مخزون' END;"));
+  ":P90_TITLE := CASE :P90_TRANS_TYPE WHEN 'RECEIPT' THEN 'استلام بضاعة' WHEN 'ISSUE' THEN 'صرف داخلي' WHEN 'TRANSFER' THEN 'تحويل بين المخازن' WHEN 'COUNT' THEN 'تسوية جرد' WHEN 'OPENING' THEN 'إشعار إضافة - بضاعة أول المدة' WHEN 'DAMAGE' THEN 'فاتورة صرف توالف' WHEN 'DAMAGE_WO' THEN 'تصفير التوالف - قرار المدير' ELSE 'حركة مخزون' END;"));
 ajax('INIT_DATA', src('p90_init.sql'));
 ajax('SAVE_DOC',  src('p90_save.sql'));
 branch_self('P90_TRANS_ID', 'P90_TRANS_TYPE');
@@ -831,8 +831,21 @@ region(name => 'ir', title => 'حركات المخزون', type => 'ir', sql => 
        links => { 'الرقم' => 'f?p=&APP_ID.:90:&SESSION.::&DEBUG.:90:P90_TRANS_ID,P90_TRANS_TYPE:#TRANS_ID#,#TRANS_TYPE_CODE#' });
 end_page();
 
+# أرصدة المخزن خلال فترة: المرحل ، الوارد ، المنصرف ، التالف ، الحالي (وبالعبوات الكبيرة) ، القيمة بسعر شراء الصغرى
 page(id => 92, name => 'أرصدة المخزون', alias => 'STOCK-BAL', auth => 'IS_STORE');
-region(name => 'ir', title => 'أرصدة المخزون', type => 'ir', sql => src('p92_ir.sql'));
+region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5);
+item(name => 'P92_WAREHOUSE_ID', region => 'f', type => 'select', label => 'المخزن', lov => $LOV{warehouses}, null => '- اختر المخزن -',
+     submit => 1, seq => 10, required => 1);
+item(name => 'P92_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 20, same_line => 1, required => 1);
+item(name => 'P92_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 30, same_line => 1, required => 1);
+button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
+table_region(name => 'rep', title => 'أرصدة المخزن خلال الفترة (الكميات بالوحدة الصغرى)', sql => src('p92_report.sql'), seq => 10,
+             cond => ':P92_WAREHOUSE_ID IS NOT NULL');
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P92_FROM IS NULL THEN :P92_FROM := '01/01/' || TO_CHAR(SYSDATE, 'YYYY'); END IF;",
+  "IF :P92_TO IS NULL THEN :P92_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;"));
+branch_self('P92_WAREHOUSE_ID', 'P92_FROM', 'P92_TO');
 end_page();
 
 page(id => 93, name => 'كارت صنف', alias => 'ITEM-CARD', auth => 'IS_STORE');

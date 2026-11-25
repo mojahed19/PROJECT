@@ -10,6 +10,11 @@ var stk = {
   init: function () {
     var type = apex.item('P90_TRANS_TYPE').getValue(),
         status = apex.item('P90_STATUS').getValue() || 'DRAFT';
+    // التكلفة من سعر شراء الصنف ولا تُعدَّل: إشعار الإضافة والتوالف وتصفيرها
+    var fixedCost = type === 'OPENING' || type === 'DAMAGE' || type === 'DAMAGE_WO',
+        showCost  = type === 'RECEIPT' || fixedCost,
+        wo        = type === 'DAMAGE_WO';
+    stk.type = type;
 
     stk.grid = new JsonLines({
       container: '#st_lines',
@@ -17,13 +22,13 @@ var stk = {
       columns  : [
         {name: 'ITEM_ID',   label: 'الصنف',  type: 'lov', lov: 'items', required: true, width: '24em'},
         {name: 'UNIT_ID',   label: 'الوحدة', type: 'select', nullText: false, required: true, options: stk.unitsOf, width: '8em', readonly: type === 'OPENING'},
-        {name: 'BAL',       label: 'الرصيد الحالي', type: 'display', decimals: 2, noSubmit: true, width: '8em'},
+        {name: 'BAL',       label: wo ? 'رصيد التوالف' : 'الرصيد الحالي', type: 'display', decimals: 2, noSubmit: true, width: '8em'},
         {name: 'QTY',       label: type === 'COUNT' ? 'الكمية الفعلية' : 'الكمية',
          type: 'number', decimals: 2, required: true, width: '8em'},
-        {name: 'UNIT_COST', label: 'تكلفة الوحدة', type: 'number', decimals: 4, width: '9em', readonly: type === 'OPENING',
-         hidden: type !== 'RECEIPT' && type !== 'OPENING'},
+        {name: 'UNIT_COST', label: 'تكلفة الوحدة', type: 'number', decimals: 4, width: '9em', readonly: fixedCost,
+         hidden: !showCost},
         {name: 'VALUE',     label: 'القيمة', type: 'display', decimals: 2, total: true, noSubmit: true,
-         hidden: type !== 'RECEIPT' && type !== 'OPENING'}
+         hidden: !showCost}
       ],
       onChange: function (row, col) {
         if (col === 'ITEM_ID') {
@@ -31,13 +36,13 @@ var stk = {
           // إشعار الإضافة: الوحدة الكبرى وسعر شرائها تلقائياً
           row.UNIT_ID = row['ITEM_ID$unit'] || (u.length ? (type === 'OPENING' ? u[u.length - 1].v : u[0].v) : null);
         }
-        if (type === 'OPENING' && (col === 'ITEM_ID' || col === 'UNIT_ID')) {
+        if (fixedCost && (col === 'ITEM_ID' || col === 'UNIT_ID' || !row.UNIT_COST)) {
           var uu = stk.unitsOf(row).filter(function (x) { return String(x.v) === String(row.UNIT_ID); })[0];
           if (uu && uu.price != null) row.UNIT_COST = uu.price;
           if (!row.QTY && row.ITEM_ID) row.QTY = 1;
         }
         var it = stk.grid.lovRecord('items', row.ITEM_ID);
-        row.BAL = it ? it.bal / stk.factorOf(row) : null;           // الرصيد بالوحدة المختارة
+        row.BAL = it ? (wo ? it.dmg : it.bal) / stk.factorOf(row) : null;           // الرصيد بالوحدة المختارة
         row.VALUE = (row.QTY || 0) * (row.UNIT_COST || 0);
       }
     });
@@ -55,10 +60,12 @@ var stk = {
   load: function () {
     var keep = stk.grid.getData();
     apex.server.process('INIT_DATA', {
-      x01: apex.item('P90_WAREHOUSE_ID').getValue(), x02: apex.item('P90_TRANS_ID').getValue()
+      x01: apex.item('P90_WAREHOUSE_ID').getValue(), x02: apex.item('P90_TRANS_ID').getValue(),
+      x03: apex.item('P90_TRANS_TYPE').getValue()
     }, {dataType: 'json'}).done(function (d) {
       stk.grid.setLov('items', d.items);
-      var rows = keep.length ? keep : d.lines;
+      // تصفير توالف جديد: السطور تُعاد من رصيد التوالف عند تغيير المخزن
+      var rows = (stk.type === 'DAMAGE_WO' && !apex.item('P90_TRANS_ID').getValue()) ? d.lines : (keep.length ? keep : d.lines);
       rows.forEach(function (r) { stk.grid.opts.onChange(r, 'QTY', stk.grid); });
       stk.grid.setData(rows);
     });

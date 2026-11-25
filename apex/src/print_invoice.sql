@@ -71,7 +71,8 @@ BEGIN
     -- حركة مخزون (إشعار إضافة ، استلام ، صرف ، تحويل ، جرد): القيمة = الكمية × التكلفة
     SELECT CASE t.trans_type WHEN 'OPENING' THEN 'إشعار إضافة - بضاعة أول المدة' WHEN 'RECEIPT' THEN 'استلام بضاعة'
                              WHEN 'ISSUE' THEN 'صرف داخلي' WHEN 'TRANSFER' THEN 'تحويل بين المخازن'
-                             WHEN 'COUNT' THEN 'تسوية جرد' ELSE 'حركة مخزون' END,
+                             WHEN 'COUNT' THEN 'تسوية جرد' WHEN 'DAMAGE' THEN 'فاتورة صرف توالف'
+                             WHEN 'DAMAGE_WO' THEN 'تصفير التوالف - قرار المدير' ELSE 'حركة مخزون' END,
            t.trans_no, t.trans_date,
            CASE WHEN t.trans_type = 'TRANSFER' THEN tw.name_ar ELSE a.name_ar END,
            CASE WHEN t.trans_type = 'TRANSFER' THEN 'إلى مخزن' ELSE 'الحساب المقابل' END,

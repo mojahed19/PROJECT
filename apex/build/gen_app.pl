@@ -129,6 +129,8 @@ my @menu = (
      ['الأصناف وأسعارها', 210], ['زيادة الأسعار بنسبة', 252], ['الوحدات', 212], ['وحدات الأصناف', 236], ['المخازن', 216],
      ['إشعار إضافة (بضاعة أول المدة)', 90, undef, 'P90_TRANS_TYPE', 'OPENING'],
      ['صرف داخلي', 90, undef, 'P90_TRANS_TYPE', 'ISSUE'],
+     ['فاتورة صرف توالف', 90, undef, 'P90_TRANS_TYPE', 'DAMAGE'],
+     ['تصفير التوالف (المدير)', 90, undef, 'P90_TRANS_TYPE', 'DAMAGE_WO', undef, ":G_USER_ROLE = 'ADMIN'"],
      ['تحويل بين المخازن', 90, undef, 'P90_TRANS_TYPE', 'TRANSFER'], ['تسوية جرد', 90, undef, 'P90_TRANS_TYPE', 'COUNT'],
      ['قائمة الحركات', 91], ['أرصدة المخزون', 92], ['كارت صنف', 93], ['أصناف قاربت انتهاء الصلاحية', 94]]],
   ['الموظفون والرواتب', undef, 'fa-users', [
@@ -166,6 +168,10 @@ my @menu = (
       list_item_icon              => undef,   # القائمة الأفقية لا تعرض أيقونات
       parent_list_item_id         => $parent ? wid($parent) : undef,
       list_item_current_type      => defined $page ? "'TARGET_PAGE'" : undef,
+      # العنصر السابع (اختياري): شرط ظهور PL/SQL
+      list_item_disp_cond_type    => $e->[6] ? "'EXPRESSION'" : undef,
+      list_item_disp_condition    => $e->[6] ? lit($e->[6]) : undef,
+      list_item_disp_condition2   => $e->[6] ? "'PLSQL'" : undef,
     ) . "\n);\n";
     if ($kids) { $add->($_, $id) for @$kids }
   };

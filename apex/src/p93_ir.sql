@@ -1,6 +1,7 @@
 SELECT t.trans_date "التاريخ", t.trans_no "رقم الحركة",
        DECODE(t.trans_type,'RECEIPT','استلام','ISSUE','صرف','TRANSFER','تحويل','COUNT','جرد',
-                           'INV_OUT','صرف لشركة','INV_IN','وارد من الأم','POS','مبيعات') "النوع",
+                           'INV_OUT','صرف لشركة','INV_IN','وارد من الأم','POS','مبيعات',
+                           'OPENING','إشعار إضافة','PURCHASE','مشتريات','DAMAGE','صرف توالف','DAMAGE_WO','تصفير توالف') "النوع",
        CASE WHEN l.qty_base > 0 THEN l.qty_base END "وارد",
        CASE WHEN l.qty_base < 0 THEN -l.qty_base END "صادر",
        SUM(l.qty_base) OVER (ORDER BY t.trans_date, t.trans_id, l.line_id ROWS UNBOUNDED PRECEDING) "الرصيد",
