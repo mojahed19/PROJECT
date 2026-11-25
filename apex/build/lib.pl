@@ -330,6 +330,9 @@ sub item {
     %t = (display_as => "'NATIVE_DATE_PICKER_APEX'", format_mask => "'DD/MM/YYYY'", cSize => 32, cMaxlength => 4000,
           attribute_01 => "'N'", attribute_02 => "'POPUP'", attribute_03 => "'NONE'", attribute_06 => "'NONE'",
           attribute_09 => "'N'", attribute_11 => "'Y'");
+  } elsif ($type eq 'checkbox') {
+    # خانة اختيار: Y / N
+    %t = (display_as => "'NATIVE_SINGLE_CHECKBOX'", attribute_01 => "'N'", attribute_02 => "'Y'", attribute_03 => "'N'");
   } elsif ($type eq 'password') {
     %t = (display_as => "'NATIVE_PASSWORD'", cSize => 40, cMaxlength => 100, attribute_01 => "'Y'");
   } elsif ($type eq 'hidden') {
@@ -350,6 +353,7 @@ sub item {
     source                => $i{col} ? lit($i{col}) : undef,
     source_type           => $i{col} ? "'REGION_SOURCE_COLUMN'" : undef,
     %t,
+    tag_attributes        => $i{readonly} ? "'readonly tabindex=\"-1\" style=\"background:#f3f3f3\"'" : undef,
     begin_on_new_line     => $i{same_line} ? "'N'" : undef,
     colspan               => $i{span},
     field_template        => wid($T{$fld}),
@@ -444,6 +448,24 @@ sub check {
   $fn =~ s/;\s*$/;/;
   my $code = "DECLARE\n  l_err VARCHAR2(4000);\n$fn\nBEGIN\n  l_err := chk;\n  IF l_err IS NOT NULL THEN\n    apex_error.add_error(p_message => l_err, p_display_location => apex_error.c_inline_in_notification);\n  END IF;\nEND;";
   process(%c, code => $code);
+}
+
+# تحويل بعد المعالجة إلى رابط، اختيارياً حسب الزر (when_req)
+sub branch_to {
+  my %b = @_;
+  out("wwv_flow_imp_page.create_page_branch(
+" . args(
+    id                    => wid(nid()),
+    branch_name           => lit($b{name} // "Branch $b{seq}"),
+    branch_action         => lit($b{url}),
+    branch_point          => "'AFTER_PROCESSING'",
+    branch_type           => "'REDIRECT_URL'",
+    branch_sequence       => $b{seq} // 10,
+    branch_condition_type => $b{when_req} ? "'REQUEST_IN_CONDITION'" : undef,
+    branch_condition      => $b{when_req} ? lit($b{when_req}) : undef,
+  ) . "
+);
+");
 }
 
 sub branch_self {

@@ -47,29 +47,39 @@ sub crud {
          url => "f?p=&APP_ID.:$F:&APP_SESSION.::&DEBUG.:$F\::");
   end_page();
 
-  # ---------- صفحة النموذج (Modal)
+  # ---------- صفحة النموذج (Modal، أو صفحة كاملة عند full => 1)
   my $fsql = "SELECT ROWID, " . join(', ', map { $_->[0] } @cols) . " FROM $tbl";
-  page(id => $F, name => $c{title}, alias => "$c{alias}-FORM", modal => 1, auth => $c{auth});
+  my $modal = !$c{full};
+  page(id => $F, name => $c{title}, alias => "$c{alias}-FORM", modal => $modal, auth => $c{auth}, ($c{form_js} ? (js => $c{form_js}) : ()), ($c{form_onload} ? (onload => $c{form_onload}) : ()));
   region(name => 'form', title => $c{title}, type => 'form', sql => $fsql, seq => 10);
-  region(name => 'buttons', title => 'Buttons', type => 'static', html => '', template => 'reg_buttons', seq => 20, position => 'REGION_POSITION_03');
+  region(name => 'buttons', title => 'Buttons', type => 'static', html => '', template => 'reg_buttons', seq => 20, ($modal ? (position => 'REGION_POSITION_03') : ()));
   item(name => "P${F}_ROWID", region => 'form', type => 'hidden', col => 'ROWID', dtype => 'ROWID', pk => 1, query_only => 1, protected => 1, seq => 1);
   my $seq = 10;
   for my $col (@cols) {
-    my ($name, $label, $type, $lov, $req, $dtype) = @$col;
+    my ($name, $label, $type, $lov, $req, $dtype, $o) = @$col;
+    $o //= {};
     $type //= 'text';
     $dtype //= $type eq 'date' ? 'DATE' : $type eq 'num' ? 'NUMBER' : 'VARCHAR2';
     item(name => "P${F}_$name", region => 'form', col => $name, dtype => $dtype, label => $label,
-         type => $type eq 'num' ? 'text' : $type, lov => $lov, null => ($type eq 'select' && !$req) ? 1 : undef,
-         required => $req, seq => ($seq += 10));
+         type => $type eq 'num' ? 'text' : $type, lov => $lov, null => $o->{null} // (($type eq 'select' && !$req) ? 1 : undef),
+         required => $req, seq => ($seq += 10), same_line => $o->{same_line}, span => $o->{span}, readonly => $o->{readonly});
   }
-  button(name => 'CANCEL', region => 'buttons', label => 'إلغاء', position => 'CLOSE', js => 'apex.navigation.dialog.cancel(true);', seq => 10);
+  button(name => 'CANCEL', region => 'buttons', label => $modal ? 'إلغاء' : 'رجوع للقائمة', position => 'CLOSE', seq => 10,
+         ($modal ? (js => 'apex.navigation.dialog.cancel(true);') : (url => "f?p=&APP_ID.:$L:&APP_SESSION.::&DEBUG.:::")));
+  button(name => 'NEW', region => 'buttons', label => 'جديد', position => 'CLOSE', seq => 15, url => "f?p=&APP_ID.:$F:&APP_SESSION.::&DEBUG.:$F::") if !$modal;
   button(name => 'DELETE', region => 'buttons', label => 'حذف', position => 'DELETE', seq => 20, dml => 'DELETE',
          if_not_null => "P${F}_ROWID", novalidate => 1, confirm => '&APP_TEXT$DELETE_MSG!RAW.');
   button(name => 'SAVE', region => 'buttons', label => 'حفظ التعديلات', position => 'NEXT', seq => 30, hot => 1, dml => 'UPDATE', if_not_null => "P${F}_ROWID");
   button(name => 'CREATE', region => 'buttons', label => 'حفظ', position => 'NEXT', seq => 40, hot => 1, dml => 'INSERT', if_null => "P${F}_ROWID");
   process(name => 'Init form', point => 'BEFORE_HEADER', kind => 'form_init', region => 'form');
   process(name => 'Process form', seq => 10, kind => 'form_dml', region => 'form');
-  process(name => 'Close Dialog', seq => 20, kind => 'close', when_req => 'CREATE,SAVE,DELETE');
+  if ($modal) {
+    process(name => 'Close Dialog', seq => 20, kind => 'close', when_req => 'CREATE,SAVE,DELETE');
+  } else {
+    # صفحة كاملة: بعد الإضافة تبقى الصفحة فارغة للصنف التالي، وبعد التعديل أو الحذف رجوع للقائمة
+    branch_to(seq => 10, when_req => 'CREATE', url => "f?p=&APP_ID.:$F:&SESSION.::&DEBUG.:$F::&success_msg=#SUCCESS_MSG#");
+    branch_to(seq => 20, when_req => 'SAVE,DELETE', url => "f?p=&APP_ID.:$L:&SESSION.::&DEBUG.:::&success_msg=#SUCCESS_MSG#");
+  }
   $c{extra}->($F) if $c{extra};
   end_page();
 }
@@ -85,7 +95,7 @@ my $users    = "SELECT full_name || ' (' || user_name || ')' d, user_name r FROM
 my $whs      = "SELECT c.name_ar || ' / ' || w.name_ar d, w.warehouse_id r FROM warehouses w JOIN companies c ON c.company_id = w.company_id ORDER BY c.company_code, w.name_ar";
 my $terms    = "SELECT name_ar d, terminal_id r FROM pos_terminals ORDER BY name_ar";
 my $roles    = "SELECT 'مدير النظام' d, 'ADMIN' r FROM dual UNION ALL SELECT 'مدخل', 'ENTRY' FROM dual UNION ALL SELECT 'مراجع', 'REVIEWER' FROM dual UNION ALL SELECT 'معتمد', 'APPROVER' FROM dual";
-my $settings = "SELECT code || ' - ' || n d, code r FROM (SELECT 'SALES' code, 'مبيعات للشركات' n FROM dual UNION ALL SELECT 'SALES_RETURN', 'مردودات المبيعات' FROM dual UNION ALL SELECT 'INTERCO_AP', 'مستحق للشركة الأم' FROM dual UNION ALL SELECT 'PURCHASES', 'وارد من الأم (مخزون)' FROM dual UNION ALL SELECT 'INVENTORY', 'المخزون' FROM dual UNION ALL SELECT 'COGS', 'تكلفة المبيعات' FROM dual UNION ALL SELECT 'INVENTORY_ADJ', 'فروقات الجرد' FROM dual UNION ALL SELECT 'POS_SALES', 'مبيعات نقاط البيع' FROM dual UNION ALL SELECT 'CASH_DIFF', 'عجز وزيادة الخزائن' FROM dual UNION ALL SELECT 'SALARY_EXP', 'مصروف الرواتب' FROM dual UNION ALL SELECT 'INCENTIVE_EXP', 'مصروف الحوافز' FROM dual UNION ALL SELECT 'SALARY_DIFF', 'فروقات الرواتب' FROM dual UNION ALL SELECT 'SALARY_PAYABLE', 'رواتب مستحقة' FROM dual UNION ALL SELECT 'DEDUCTIONS', 'خصومات الموظفين' FROM dual UNION ALL SELECT 'CHEQUES_IN', 'Ø´ÙÙØ§Øª ØªØ­Øª Ø§ÙØªØ­ØµÙÙ' FROM dual UNION ALL SELECT 'CHEQUES_OUT', 'Ø´ÙÙØ§Øª ØªØ­Øª Ø§ÙØµØ±Ù' FROM dual)";
+my $settings = "SELECT code || ' - ' || n d, code r FROM (SELECT 'SALES' code, 'مبيعات للشركات' n FROM dual UNION ALL SELECT 'SALES_RETURN', 'مردودات المبيعات' FROM dual UNION ALL SELECT 'INTERCO_AP', 'مستحق للشركة الأم' FROM dual UNION ALL SELECT 'PURCHASES', 'وارد من الأم (مخزون)' FROM dual UNION ALL SELECT 'INVENTORY', 'المخزون' FROM dual UNION ALL SELECT 'COGS', 'تكلفة المبيعات' FROM dual UNION ALL SELECT 'INVENTORY_ADJ', 'فروقات الجرد' FROM dual UNION ALL SELECT 'POS_SALES', 'مبيعات نقاط البيع' FROM dual UNION ALL SELECT 'CASH_DIFF', 'عجز وزيادة الخزائن' FROM dual UNION ALL SELECT 'SALARY_EXP', 'مصروف الرواتب' FROM dual UNION ALL SELECT 'INCENTIVE_EXP', 'مصروف الحوافز' FROM dual UNION ALL SELECT 'SALARY_DIFF', 'فروقات الرواتب' FROM dual UNION ALL SELECT 'SALARY_PAYABLE', 'رواتب مستحقة' FROM dual UNION ALL SELECT 'DEDUCTIONS', 'خصومات الموظفين' FROM dual UNION ALL SELECT 'CHEQUES_IN', 'شيكات تحت التحصيل' FROM dual UNION ALL SELECT 'CHEQUES_OUT', 'شيكات تحت الصرف' FROM dual)";
 
 crud(list => 204, form => 205, title => 'السنوات المالية', table => 'fiscal_years', alias => 'FISCAL', auth => 'IS_GM', order => 't.fy_year DESC', cols => [
   ['FY_YEAR', 'السنة', 'num', undef, 1], ['START_DATE', 'البداية', 'date', undef, 1], ['END_DATE', 'النهاية', 'date', undef, 1],
@@ -134,27 +144,88 @@ crud(list => 208, form => 209, title => 'الحسابات الافتراضية',
 crud(list => 212, form => 213, title => 'الوحدات', table => 'units', alias => 'UNITS', auth => 'IS_STORE', order => 't.name_ar', cols => [
   ['NAME_AR', 'الاسم', 'text', undef, 1], ['NAME_EN', 'الاسم الإنجليزي']]);
 
-crud(list => 210, form => 211, title => 'الأصناف وأسعارها', table => 'items', alias => 'ITEMS', auth => 'IS_STORE', order => 't.item_code', cols => [
-  ['ITEM_CODE', 'الكود', 'text', undef, 1], ['NAME_AR', 'الاسم', 'text', undef, 1], ['NAME_EN', 'الاسم الإنجليزي'],
-  ['BARCODE', 'الباركود'],
-  ['BASE_UNIT_ID', 'الوحدة الصغرى', 'select', $units, 1, 'NUMBER'],
-  ['PURCHASE_PRICE', 'سعر الشراء (الوحدة الصغرى)', 'num'], ['SALE_PRICE', 'سعر البيع (الوحدة الصغرى)', 'num'],
-  ['BIG_UNIT_ID', 'الوحدة الكبرى', 'select', $units, undef, 'NUMBER'], ['BIG_FACTOR', 'تعادل (عدد الوحدات الصغرى)', 'num'],
-  ['BIG_PURCHASE_PRICE', 'سعر الشراء (الوحدة الكبرى)', 'num'], ['BIG_SALE_PRICE', 'سعر البيع (الوحدة الكبرى)', 'num'],
-  ['EXPIRY_DATE', 'تاريخ الصلاحية', 'date'],
-  ['REORDER_LEVEL', 'حد الطلب', 'num'], ['IS_ACTIVE', 'فعّال', 'select', $yn, 1]],
-  # وحدات الصنف تُحدَّث تلقائياً من الوحدة الصغرى والكبرى
+# الأصناف: صفحة كاملة (ليست نافذة). الكود متسلسل تلقائي، وسعر الوحدة الصغرى = سعر الكبرى ÷ ما تعادله (لأقرب خانتين)
+#   السطر 1: الكود ، الاسم ، الاسم الإنجليزي ، الباركود
+#   السطر 2: الوحدة الكبرى ، ما تعادله من الصغرى ، الوحدة الصغرى (يمكن أن تكون نفس الكبرى وتعادل 1)
+#   السطر 3: سعر شراء الكبرى ، سعر شراء الصغرى (تلقائي)
+#   السطر 4: سعر بيع الكبرى ، سعر بيع الصغرى (تلقائي)
+#   السطر 5: تاريخ الصلاحية ، حد الطلب ، فعّال
+my $item_js = <<'JS';
+var itm = {
+  num: function (n) {
+    var v = String(apex.item(n).getValue() || '').replace(/,/g, '').trim();
+    return v === '' || isNaN(v) ? null : Number(v);
+  },
+  // الوحدة الصغرى = الكبرى ← تعادل 1 ، ثم أسعار الصغرى = الكبرى ÷ التعادل
+  calc: function () {
+    var big = apex.item('P211_BIG_UNIT_ID').getValue(), small = apex.item('P211_BASE_UNIT_ID').getValue();
+    if (big && small && big === small && itm.num('P211_BIG_FACTOR') !== 1) apex.item('P211_BIG_FACTOR').setValue('1');
+    var f = itm.num('P211_BIG_FACTOR');
+    [['P211_BIG_PURCHASE_PRICE', 'P211_PURCHASE_PRICE'], ['P211_BIG_SALE_PRICE', 'P211_SALE_PRICE']].forEach(function (p) {
+      var b = itm.num(p[0]);
+      apex.item(p[1]).setValue(b !== null && f > 0 ? (Math.round((b / f + 1e-9) * 100) / 100).toFixed(2) : '');
+    });
+  },
+  init: function () {
+    apex.jQuery('#P211_BIG_UNIT_ID, #P211_BASE_UNIT_ID, #P211_BIG_FACTOR, #P211_BIG_PURCHASE_PRICE, #P211_BIG_SALE_PRICE')
+      .on('change input', itm.calc);
+    itm.calc();
+    var n = document.getElementById('P211_NAME_AR');
+    if (n && window.EnterNav) EnterNav.focus(n);
+  }
+};
+JS
+
+crud(list => 210, form => 211, title => 'الأصناف وأسعارها', table => 'items', alias => 'ITEMS', auth => 'IS_STORE', order => 't.item_code',
+  full => 1, form_js => $item_js, form_onload => 'itm.init();', cols => [
+  ['ITEM_CODE', 'الكود', 'text', undef, 1, undef, {span => 2, readonly => 1}],
+  ['NAME_AR', 'الاسم', 'text', undef, 1, undef, {span => 4, same_line => 1}],
+  ['NAME_EN', 'الاسم الإنجليزي', 'text', undef, undef, undef, {span => 3, same_line => 1}],
+  ['BARCODE', 'الباركود', 'text', undef, undef, undef, {span => 3, same_line => 1}],
+  ['BIG_UNIT_ID', 'الوحدة الكبرى', 'select', $units, 1, 'NUMBER', {span => 4, null => '- اختر -'}],
+  ['BIG_FACTOR', 'ما تعادله من الوحدة الصغرى', 'num', undef, 1, undef, {span => 4, same_line => 1}],
+  ['BASE_UNIT_ID', 'الوحدة الصغرى', 'select', $units, 1, 'NUMBER', {span => 4, same_line => 1, null => '- اختر -'}],
+  ['BIG_PURCHASE_PRICE', 'سعر الشراء للوحدة الكبرى', 'num', undef, 1, undef, {span => 6}],
+  ['PURCHASE_PRICE', 'سعر الشراء للوحدة الصغرى (تلقائي)', 'num', undef, undef, undef, {span => 6, same_line => 1, readonly => 1}],
+  ['BIG_SALE_PRICE', 'سعر البيع للوحدة الكبرى', 'num', undef, 1, undef, {span => 6}],
+  ['SALE_PRICE', 'سعر البيع للوحدة الصغرى (تلقائي)', 'num', undef, undef, undef, {span => 6, same_line => 1, readonly => 1}],
+  ['EXPIRY_DATE', 'تاريخ الصلاحية', 'date', undef, undef, undef, {span => 4}],
+  ['REORDER_LEVEL', 'حد الطلب', 'num', undef, undef, undef, {span => 4, same_line => 1}],
+  ['IS_ACTIVE', 'فعّال', 'checkbox', undef, undef, undef, {span => 4, same_line => 1}]],
   extra => sub {
     my $F = shift;
-    check(name => 'CHECK_UNITS', seq => 5, when_req => 'CREATE,SAVE', code => <<"SQL");
-RETURN CASE
-  WHEN :P${F}_BIG_UNIT_ID IS NOT NULL AND :P${F}_BIG_UNIT_ID = :P${F}_BASE_UNIT_ID THEN 'الوحدة الكبرى يجب أن تختلف عن الصغرى'
-  WHEN :P${F}_BIG_UNIT_ID IS NOT NULL AND NVL(TO_NUMBER(:P${F}_BIG_FACTOR), 0) <= 1 THEN 'أدخل كم تعادل الوحدة الكبرى من الوحدات الصغرى (أكبر من 1)'
-  WHEN NVL(TO_NUMBER(:P${F}_SALE_PRICE), 0) <= 0 THEN 'أدخل سعر البيع للوحدة الصغرى'
-  WHEN NVL(TO_NUMBER(:P${F}_PURCHASE_PRICE), 0) <= 0 THEN 'أدخل سعر الشراء للوحدة الصغرى'
+    # صنف جديد: الكود التالي في التسلسل ، وفعّال افتراضياً
+    process(name => 'NEW_DEFAULTS', point => 'BEFORE_HEADER', seq => 20, cond => ":P${F}_ROWID IS NULL", code => <<"SQL");
+BEGIN
+  SELECT TO_CHAR(NVL(MAX(TO_NUMBER(item_code DEFAULT NULL ON CONVERSION ERROR)), 0) + 1) INTO :P${F}_ITEM_CODE FROM items;
+  :P${F}_IS_ACTIVE := NVL(:P${F}_IS_ACTIVE, 'Y');
 END;
 SQL
-    process(name => 'SYNC_UNITS', seq => 15, when_req => 'CREATE,SAVE', code => <<"SQL");
+    check(name => 'CHECK_UNITS', seq => 5, when_req => 'CREATE,SAVE', code => <<"SQL");
+DECLARE
+  FUNCTION n (p VARCHAR2) RETURN NUMBER IS BEGIN RETURN TO_NUMBER(REPLACE(p, ',')); EXCEPTION WHEN OTHERS THEN RETURN NULL; END;
+BEGIN
+RETURN CASE
+  WHEN NVL(n(:P${F}_BIG_FACTOR), 0) <= 0 THEN 'أدخل ما تعادله الوحدة الكبرى من الوحدات الصغرى'
+  WHEN :P${F}_BIG_UNIT_ID = :P${F}_BASE_UNIT_ID AND n(:P${F}_BIG_FACTOR) <> 1 THEN 'الوحدة الكبرى هي نفسها الصغرى: ما تعادله يجب أن يكون 1'
+  WHEN :P${F}_BIG_UNIT_ID <> :P${F}_BASE_UNIT_ID AND n(:P${F}_BIG_FACTOR) <= 1 THEN 'الوحدة الكبرى تعادل أكثر من وحدة صغرى واحدة'
+  WHEN NVL(n(:P${F}_BIG_PURCHASE_PRICE), 0) <= 0 THEN 'أدخل سعر الشراء للوحدة الكبرى'
+  WHEN NVL(n(:P${F}_BIG_SALE_PRICE), 0) <= 0 THEN 'أدخل سعر البيع للوحدة الكبرى'
+END;
+END;
+SQL
+    # قبل الحفظ: الكود التالي فعلياً (لو أضاف مستخدم آخر صنفاً في نفس الوقت) ، وأسعار الصغرى تُحسب في الخادم
+    process(name => 'PREPARE', seq => 7, when_req => 'CREATE,SAVE', code => <<"SQL");
+BEGIN
+  IF :REQUEST = 'CREATE' THEN
+    SELECT TO_CHAR(NVL(MAX(TO_NUMBER(item_code DEFAULT NULL ON CONVERSION ERROR)), 0) + 1) INTO :P${F}_ITEM_CODE FROM items;
+  END IF;
+  :P${F}_PURCHASE_PRICE := TO_CHAR(ROUND(TO_NUMBER(REPLACE(:P${F}_BIG_PURCHASE_PRICE, ',')) / TO_NUMBER(REPLACE(:P${F}_BIG_FACTOR, ',')), 2));
+  :P${F}_SALE_PRICE     := TO_CHAR(ROUND(TO_NUMBER(REPLACE(:P${F}_BIG_SALE_PRICE, ','))     / TO_NUMBER(REPLACE(:P${F}_BIG_FACTOR, ',')), 2));
+  :P${F}_IS_ACTIVE      := NVL(:P${F}_IS_ACTIVE, 'N');
+END;
+SQL
+    process(name => 'SYNC_UNITS', seq => 15, when_req => 'CREATE,SAVE', success => 'تم حفظ الصنف &P211_ITEM_CODE.', code => <<"SQL");
 DECLARE
   l_id NUMBER;
 BEGIN
@@ -162,7 +233,7 @@ BEGIN
   MERGE INTO item_units u
   USING (SELECT item_id, base_unit_id unit_id, 1 factor FROM items WHERE item_id = l_id
          UNION ALL
-         SELECT item_id, big_unit_id, big_factor FROM items WHERE item_id = l_id AND big_unit_id IS NOT NULL AND big_factor > 1) s
+         SELECT item_id, big_unit_id, big_factor FROM items WHERE item_id = l_id AND big_unit_id <> base_unit_id AND big_factor > 1) s
   ON (u.item_id = s.item_id AND u.unit_id = s.unit_id)
   WHEN MATCHED THEN UPDATE SET u.factor = s.factor
   WHEN NOT MATCHED THEN INSERT (item_id, unit_id, factor) VALUES (s.item_id, s.unit_id, s.factor);
