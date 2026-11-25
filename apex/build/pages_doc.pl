@@ -747,8 +747,39 @@ apex.jQuery(document).on('change', '.fs-note-in', function () {
   apex.server.process('SAVE_NOTE', {x01: el.getAttribute('data-key'), x02: el.value}, {dataType: 'json'})
     .done(function (d) { el.classList.toggle('saved', !!d.ok); if (!d.ok) apex.message.alert(d.error || 'تعذّر الحفظ'); });
 });
+// المركز المالي يملأ ورقة A4 عند الطباعة: أكبر خط يجعل القائمة تسع ورقة واحدة
+// (نسخة مخفية بعرض A4 الصافي 190 مم ≈ 718px ، والارتفاع المتاح 277 مم ≈ 1047px مع هامش أمان)
+function fsFitBs() {
+  var bs = document.querySelector('.fs-bs'); if (!bs) return;
+  var c = bs.cloneNode(true);
+  c.classList.add('bs-fit');
+  c.style.cssText = 'position:absolute;left:-5000px;top:0;width:718px;max-width:none;margin:0';
+  document.body.appendChild(c);
+  var lo = 9, hi = 24, best = 9;
+  while (hi - lo > 0.2) {
+    var mid = (lo + hi) / 2;
+    c.style.setProperty('--bs', mid + 'px');
+    if (c.getBoundingClientRect().height <= 1005) { best = mid; lo = mid; } else { hi = mid; }
+  }
+  c.remove();
+  document.documentElement.style.setProperty('--bs', best.toFixed(2) + 'px');
+}
+fsFitBs();
+window.addEventListener('beforeprint', fsFitBs);
 JS
-page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS', auth => 'IS_ACCOUNTANT', onload => $fs_notes_js, css => <<'CSS');
+# قواعد حجم المركز المالي عند الطباعة تعتمد على المتغير --bs (يحسبه fsFitBs) ، وتُستخدم أيضاً للقياس (.bs-fit)
+my $bs_rules = sub {
+  my $s = shift;
+  return join("\n",
+    "  $s .fs-title { font-size: calc(var(--bs, 14px) * 1.25); margin: 0 0 calc(var(--bs, 14px) * 0.6); }",
+    "  $s .fs { font-size: var(--bs, 14px); line-height: 1.3; }",
+    "  $s .fs th { padding: calc(var(--bs, 14px) * 0.4) 6px; }",
+    "  $s .fs td { padding: calc(var(--bs, 14px) * 0.32) 6px; }",
+    "  $s .fs tr.main td.lbl { font-size: calc(var(--bs, 14px) * 1.12); padding-top: calc(var(--bs, 14px) * 0.6); }",
+    "  $s .fs tr.grand td { font-size: calc(var(--bs, 14px) * 1.06); }",
+    "  $s .fs tr:not(.sec):not(.main):not(.tot):not(.grand) td.lbl { padding-inline-start: calc(var(--bs, 14px) * 1.4); }") . "\n";
+};
+my $fs_css = <<'CSS';
 .fs-page { max-width: 820px; margin: 0 auto 28px; direction: rtl; }
 .fs-gap { height: 26px; }
 .fs-title { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 4px 0 10px; }
@@ -768,7 +799,7 @@ page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS
 .fs-note-in { width: 100%; max-width: 70px; text-align: center; font: inherit; border: 1px dashed #bbb; border-radius: 3px; padding: 1px 2px; background: #fffef5; }
 .fs-note-in:focus { border: 1px solid #146b2d; outline: none; background: #fff; }
 .fs-note-in.saved { border-color: #9c9; }
-/* الطباعة: الورقة 1 تكلفة المبيعات وقائمة الدخل ، الورقة 2 المركز المالي مضغوطاً في ورقة واحدة */
+/* الطباعة: الورقة 1 تكلفة المبيعات وقائمة الدخل ، الورقة 2 المركز المالي يملأ ورقة A4 واحدة */
 @page { size: A4; margin: 10mm; }
 @media print {
   .no-print { display: none !important; }
@@ -776,16 +807,10 @@ page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS
   .fs-page:not(.fs-bs) { page-break-after: always; break-after: page; }
   .fs-gap { height: 14px; }
   .fs-bs { page-break-inside: avoid; break-inside: avoid; }
-  .fs-bs .fs-title { font-size: 14px; margin: 0 0 4px; }
-  .fs-bs .fs { font-size: 11px; line-height: 1.15; }
-  .fs-bs .fs th { padding: 2px 4px; }
-  .fs-bs .fs td { padding: 1px 4px; }
-  .fs-bs .fs tr.main td.lbl { font-size: 12px; padding-top: 3px; }
-  .fs-bs .fs tr.grand td { font-size: 12px; }
-  .fs-bs .fs tr:not(.sec):not(.main):not(.tot):not(.grand) td.lbl { padding-inline-start: 14px; }
   .fs-note-in { border: none !important; background: transparent !important; padding: 0; color: #000; }
-}
 CSS
+$fs_css .= $bs_rules->('.fs-bs') . "}\n" . $bs_rules->('.bs-fit');
+page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS', auth => 'IS_ACCOUNTANT', onload => $fs_notes_js, css => $fs_css);
 region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');
 item(name => 'P84_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 10, required => 1);
 item(name => 'P84_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 20, same_line => 1, required => 1);
