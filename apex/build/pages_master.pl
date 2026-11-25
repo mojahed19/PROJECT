@@ -307,18 +307,31 @@ crud(list => 20, form => 21, title => 'أنواع القيود', table => 'journ
 # =====================================================================
 # 10 شجرة الحسابات
 # =====================================================================
+# شجرة منزلقة: + يفتح فروع الحساب ، − يطويه مع كل فروعه ، وأزرار لتوسيع / طي الشجرة كلها
+# تفتح تلقائياً على مسار الحساب المختار (أو الحساب الأب عند إضافة حساب فرعي) ، وباقي الشجرة مطوية
 my $tree = <<'PLSQL';
 DECLARE
   TYPE t_b IS TABLE OF BOOLEAN INDEX BY PLS_INTEGER;
   st    t_b;
   top   PLS_INTEGER := 0;
   l_lbl VARCHAR2(4000);
+  l_open BOOLEAN;
+  TYPE t_set IS TABLE OF BOOLEAN INDEX BY VARCHAR2(40);
+  on_path t_set;                       -- الحسابات على مسار الحساب المختار (تُفتح)
   PROCEDURE pop IS
   BEGIN
-    IF st(top) THEN htp.p('</ul></details></li>'); ELSE htp.p('</li>'); END IF;
+    IF st(top) THEN htp.p('</ul></li>'); ELSE htp.p('</li>'); END IF;
     top := top - 1;
   END;
 BEGIN
+  FOR p IN (SELECT account_id FROM accounts
+            START WITH account_id = TO_NUMBER(NVL(:P10_ACCOUNT_ID, :P10_PARENT_ID))
+            CONNECT BY PRIOR parent_id = account_id) LOOP
+    on_path(TO_CHAR(p.account_id)) := TRUE;
+  END LOOP;
+  htp.p('<div class="acc-tree-tools">'
+     || '<button type="button" class="t-Button t-Button--small" data-tree="open"><span class="tg-ic">+</span> توسيع الكل</button> '
+     || '<button type="button" class="t-Button t-Button--small" data-tree="close"><span class="tg-ic">&minus;</span> طي الكل</button></div>');
   htp.p('<ul class="acc-tree">');
   FOR r IN (SELECT LEVEL lvl, a.account_id, a.account_code, a.name_ar, a.is_active, CONNECT_BY_ISLEAF leaf
             FROM accounts a
@@ -334,9 +347,12 @@ BEGIN
           || '<span class="fa ' || CASE WHEN r.leaf = 1 THEN 'fa-file-text-o' ELSE 'fa-folder-o' END || '"></span> '
           || apex_escape.html(r.account_code || ' - ' || r.name_ar) || '</a>';
     IF r.leaf = 0 THEN
-      htp.p('<li><details' || ' open' || '><summary>' || l_lbl || '</summary><ul>');
+      l_open := on_path.EXISTS(TO_CHAR(r.account_id));
+      htp.p('<li class="nd' || CASE WHEN l_open THEN ' open' END || '"><span class="tg" role="button" title="فتح / طي">'
+            || CASE WHEN l_open THEN '&minus;' ELSE '+' END || '</span>' || l_lbl
+            || '<ul' || CASE WHEN NOT l_open THEN ' style="display:none"' END || '>');
     ELSE
-      htp.p('<li>' || l_lbl);
+      htp.p('<li class="lf"><span class="tg-sp"></span>' || l_lbl);
     END IF;
   END LOOP;
   WHILE top > 0 LOOP pop; END LOOP;
@@ -365,12 +381,41 @@ apex.jQuery('#P10_PARENT_ID').on('change', function () {
     if (d.nature) apex.item('P10_NATURE').setValue(d.nature);
   });
 });
+// الشجرة المنزلقة: + يفتح الفرع ، − يطويه مع كل فروعه الداخلية
+var $t = apex.jQuery;
+var accTreeSet = function (li, open, anim) {
+  li.toggleClass('open', open);
+  li.children('.tg').html(open ? '&minus;' : '+');
+  var ul = li.children('ul');
+  if (open) { anim ? ul.stop(true, true).slideDown(150) : ul.show(); }
+  else      { anim ? ul.stop(true, true).slideUp(150)   : ul.hide(); }
+};
+$t(document).on('click', '.acc-tree .tg', function () {
+  var li = $t(this).closest('li');
+  if (li.hasClass('open')) {
+    li.find('li.nd').each(function () { accTreeSet($t(this), false, false); });   // طي كل الفروع الداخلية
+    accTreeSet(li, false, true);
+  } else {
+    accTreeSet(li, true, true);
+  }
+});
+$t(document).on('click', '.acc-tree-tools [data-tree]', function () {
+  var open = $t(this).attr('data-tree') === 'open';
+  $t('.acc-tree li.nd').each(function () { accTreeSet($t(this), open, false); });
+});
 JS
 
 page(id => 10, name => 'شجرة الحسابات', alias => 'ACCOUNTS', auth => 'IS_ACCOUNTANT', onload => $acc_js, css => <<'CSS');
 .acc-tree, .acc-tree ul { list-style: none; margin: 0; padding-inline-start: 18px; }
 .acc-tree > li { margin: 2px 0; }
-.acc-tree summary { cursor: pointer; }
+.acc-tree li { margin: 1px 0; }
+.acc-tree .tg, .acc-tree-tools .tg-ic { display: inline-block; width: 18px; height: 18px; line-height: 15px; text-align: center;
+  border: 1px solid #8a8a8a; border-radius: 3px; font-weight: 700; font-size: 14px; background: #fff; vertical-align: middle; }
+.acc-tree .tg { cursor: pointer; margin-inline-end: 4px; user-select: none; }
+.acc-tree .tg:hover { background: #eef5ee; border-color: #146b2d; color: #146b2d; }
+.acc-tree .tg-sp { display: inline-block; width: 22px; }
+.acc-tree-tools { margin-bottom: 8px; }
+.acc-tree-tools .tg-ic { width: 16px; height: 16px; line-height: 13px; font-size: 13px; margin-inline-end: 2px; }
 .acc-tree a { text-decoration: none; padding: 2px 4px; border-radius: 3px; display: inline-block; }
 .acc-tree a.sel { background: var(--ut-palette-primary, #0572ce); color: #fff; }
 CSS
