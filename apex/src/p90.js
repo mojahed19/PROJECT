@@ -64,6 +64,11 @@ var stk = {
     });
   },
 
+  print: function () {
+    window.open(apex.util.makeApplicationUrl({pageId: 95, itemNames: ['P95_TRANS_ID'],
+      itemValues: [apex.item('P90_TRANS_ID').getValue()]}), 'print', 'width=900,height=1000');
+  },
+
   save: function (action) {
     var errs = stk.grid.validate();
     if (!apex.item('P90_WAREHOUSE_ID').getValue()) errs.unshift('اختر المخزن');

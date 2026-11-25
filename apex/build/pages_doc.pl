@@ -566,7 +566,8 @@ body { background: #fff !important; color: #000; }
 CSS
 for my $pp (['53', 'SALE', 'A4', 'P53_INVOICE_ID', 'طباعة فاتورة مبيعات A4'],
             ['54', 'SALE', '80', 'P54_INVOICE_ID', 'طباعة إيصال مبيعات'],
-            ['57', 'PURCHASE', 'A4', 'P57_PINV_ID', 'طباعة فاتورة مشتريات A4']) {
+            ['57', 'PURCHASE', 'A4', 'P57_PINV_ID', 'طباعة فاتورة مشتريات A4'],
+            ['95', 'STOCK', 'A4', 'P95_TRANS_ID', 'طباعة حركة مخزون A4']) {
   my ($pid, $kind, $size, $itm, $name) = @$pp;
   my $page_css = $print_css . ($size eq '80'
       ? "\@page { size: 80mm auto; margin: 2mm; }\n.inv-brand img { width: 60px; height: 60px; }\n.inv-brand .nm { font-size: 14px; }\n.inv-brand { width: 72mm; margin: 0 auto; }\n"
@@ -792,6 +793,7 @@ $draft = can_save('P90_STATUS');
 button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ (Ctrl+S)', js => "stk.save('DRAFT');", hot => 1, seq => 10, cond => $draft);
 wf_setup(page => 90, region => 'lines', table => 'stock_trans', idcol => 'trans_id', id => 'P90_TRANS_ID',
          status => 'P90_STATUS', doc => 'STOCK', post => src('p90_post.sql'));
+button(name => 'PRINT_A4', region => 'lines', label => 'طباعة A4', js => 'stk.print();', seq => 25, cond => ':P90_TRANS_ID IS NOT NULL');
 button(name => 'NEW', region => 'lines', label => 'جديد', url => 'f?p=&APP_ID.:90:&SESSION.::&DEBUG.:90:P90_TRANS_TYPE:&P90_TRANS_TYPE.', position => 'PREVIOUS', seq => 30);
 process(name => 'LOAD_HEADER', point => 'BEFORE_HEADER', seq => 10, cond => ':P90_TRANS_ID IS NOT NULL', code => <<'SQL');
 DECLARE t stock_trans%ROWTYPE; r stock_trans%ROWTYPE;
