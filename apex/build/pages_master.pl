@@ -351,11 +351,17 @@ $suggest =~ s/;\s*\z/;/;
 my $suggest_ajax = "DECLARE\n$suggest\nBEGIN\n  s;\n  apex_json.open_object;\n  apex_json.write('level', :P10_ACC_LEVEL);\n  apex_json.write('code', :P10_ACCOUNT_CODE);\n  apex_json.write('type', :P10_ACC_TYPE);\n  apex_json.write('nature', :P10_NATURE);\n  apex_json.close_object;\nEND;";
 
 my $acc_js = <<'JS';
+// النوع يُورث من الحساب الأب: يظهر فقط للحساب الرئيسي (بدون أب)
+var accTypeToggle = function () {
+  if (apex.item('P10_PARENT_ID').getValue()) apex.item('P10_ACC_TYPE').hide(); else apex.item('P10_ACC_TYPE').show();
+};
+accTypeToggle();
+apex.jQuery('#P10_PARENT_ID').on('change', accTypeToggle);
 apex.jQuery('#P10_PARENT_ID').on('change', function () {
   apex.server.process('SUGGEST', {pageItems: '#P10_PARENT_ID'}, {dataType: 'json'}).done(function (d) {
     apex.item('P10_ACC_LEVEL').setValue(d.level);
     document.getElementById('acc_level').textContent = d.level;
-    if (!apex.item('P10_ACCOUNT_ID').getValue()) apex.item('P10_ACCOUNT_CODE').setValue(d.code);
+    apex.item('P10_ACCOUNT_CODE').setValue(d.code);   // رقم الحساب مخفي: يُعاد توليده عند تغيير الأب
     if (d.type) apex.item('P10_ACC_TYPE').setValue(d.type);
     if (d.nature) apex.item('P10_NATURE').setValue(d.nature);
   });
@@ -376,7 +382,8 @@ item(name => 'P10_ACCOUNT_ID', region => 'form', type => 'hidden', seq => 1);
 item(name => 'P10_ACC_LEVEL', region => 'form', type => 'hidden', seq => 2);
 item(name => 'P10_PARENT_ID', region => 'form', type => 'popup', label => 'الحساب الأب (فارغ = حساب رئيسي)', seq => 10,
      lov => "SELECT LPAD(' ', (acc_level - 1) * 3) || account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE acc_level < 4 ORDER BY account_code");
-item(name => 'P10_ACCOUNT_CODE', region => 'form', label => 'رقم الحساب', seq => 20, required => 1);
+# رقم الحساب يُولَّد تلقائياً من الحساب الأب ولا يُدخل يدوياً
+item(name => 'P10_ACCOUNT_CODE', region => 'form', type => 'hidden', seq => 20);
 item(name => 'P10_NAME_AR', region => 'form', label => 'الاسم', seq => 30, same_line => 1, required => 1);
 item(name => 'P10_NAME_EN', region => 'form', label => 'الاسم الإنجليزي', seq => 40);
 item(name => 'P10_ACC_TYPE', region => 'form', type => 'select', label => 'النوع', seq => 50, same_line => 1, required => 1,
@@ -428,7 +435,8 @@ DECLARE
 BEGIN
   IF apex_error.have_errors_occurred THEN RETURN; END IF;
   IF :P10_PARENT_ID IS NOT NULL THEN
-    SELECT acc_level + 1 INTO l_lvl FROM accounts WHERE account_id = :P10_PARENT_ID;
+    -- المستوى والنوع من الحساب الأب
+    SELECT acc_level + 1, acc_type INTO l_lvl, :P10_ACC_TYPE FROM accounts WHERE account_id = :P10_PARENT_ID;
   END IF;
   IF :P10_ACCOUNT_ID IS NULL THEN
     INSERT INTO accounts (account_code, name_ar, name_en, parent_id, acc_level, acc_type, nature,
