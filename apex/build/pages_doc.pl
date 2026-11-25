@@ -1500,7 +1500,39 @@ branch_self('P123_FY_YEAR', 'P123_BITEM_ID', 'P123_ONLY_APPROVED', 'P123_QUARTER
 end_page();
 
 # =====================================================================
-page(id => 1, name => 'الرئيسية', alias => 'HOME');
+# رسوم لوحة المدير (p1_charts.sql): أعمدة شهرية ، شريط نقدي / آجل ، أشرطة أعلى الأصناف
+page(id => 1, name => 'الرئيسية', alias => 'HOME', css => <<'CSS');
+.ch-wrap { display: flex; flex-wrap: wrap; gap: 14px; direction: rtl; }
+.ch-card { flex: 1 1 300px; background: #fff; border: 1px solid #e3e3e3; border-radius: 6px; padding: 12px 14px; min-width: 0; }
+.ch-card.ch-wide { flex: 1 1 100%; }
+.ch-title { font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+.ch-legend { font-weight: 400; font-size: 12px; color: #555; margin-inline-start: 12px; }
+.ch-legend i, .ch-tab i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 6px 0 2px; vertical-align: middle; }
+.ch-empty { color: #888; text-align: center; padding: 18px 0; }
+.ch-cols { display: flex; align-items: flex-end; gap: 6px; height: 200px; border-bottom: 1px solid #bbb; padding-top: 16px; }
+.ch-col { flex: 1; display: flex; flex-direction: column; height: 100%; min-width: 0; }
+.ch-bars { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.ch-bar { width: 42%; max-width: 22px; position: relative; border-radius: 3px 3px 0 0; }
+.ch-bar span { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 10px; color: #222; white-space: nowrap;
+               display: none; background: #fff; border: 1px solid #ccc; border-radius: 3px; padding: 0 3px; z-index: 2; }
+.ch-bar:hover span { display: block; }
+.ch-col:hover .ch-lbl { font-weight: 700; color: #000; }
+.ch-lbl { text-align: center; font-size: 11px; color: #555; padding-top: 3px; margin-bottom: -18px; }
+.ch-bar.rv, .ch-legend i.rv { background: #2e7d32; }
+.ch-bar.ex, .ch-legend i.ex { background: #c62828; }
+.ch-split { display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: #eee; margin-bottom: 10px; }
+.ch-split .cs, .ch-tab i.cs { background: #1565c0; }
+.ch-split .cr, .ch-tab i.cr { background: #ef8f00; }
+.ch-tab { width: 100%; font-size: 13px; border-collapse: collapse; }
+.ch-tab td { padding: 3px 4px; }
+.ch-tab td.n { text-align: left; direction: ltr; white-space: nowrap; }
+.ch-tab tr.t td { font-weight: 700; border-top: 1px solid #ccc; }
+.ch-hrow { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; }
+.ch-hl { width: 30%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch-ht { flex: 1; background: #f1f1f1; border-radius: 3px; height: 14px; }
+.ch-hb { height: 100%; background: #6a1b9a; border-radius: 3px; }
+.ch-hv { width: 28%; text-align: left; direction: ltr; white-space: nowrap; font-size: 12px; }
+CSS
 region(name => 'f', title => 'لوحة المدير العام', type => 'static', html => '', seq => 5);
 item(name => 'P1_COMPANY_ID', region => 'f', type => 'select', label => 'الشركة', lov => $LOV{companies}, null => 'كل الشركات', submit => 1);
 item(name => 'P1_YEAR', region => 'f', type => 'select', label => 'السنة', lov => $LOV{years}, submit => 1, seq => 20, same_line => 1);
@@ -1508,6 +1540,7 @@ item(name => 'P1_MODE', region => 'f', type => 'select', label => 'العرض', 
      lov => "SELECT 'كل شركة منفصلة' d, 'SEP' r FROM dual UNION ALL SELECT 'مجمّع (يستبعد البيني)', 'CONS' FROM dual");
 table_region(name => 'kpi', title => 'المؤشرات', sql => src('p1_kpi.sql'), seq => 10, span => 4);
 table_region(name => 'comp', title => 'الإيرادات والمصروفات شهرياً', sql => src('p1_monthly.sql'), seq => 20, span => 8, same_row => 1);
+region(name => 'charts', title => 'الرسوم البيانية', type => 'plsql', seq => 25, plsql => src('p1_charts.sql'));
 table_region(name => 'alerts', title => 'تنبيهات', sql => src('p1_alerts.sql'), seq => 30);
 # التوالف التي تنتظر قرار التصفير ، والأصناف القاربت انتهاء صلاحيتها
 table_region(name => 'damaged', title => 'التوالف غير المصفّاة (تنتظر قرار المدير)', sql => src('p1_damaged.sql'), seq => 40, span => 6);

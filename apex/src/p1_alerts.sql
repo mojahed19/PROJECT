@@ -5,9 +5,6 @@ UNION ALL
 SELECT 'مستندات بانتظار الاعتماد',
        (SELECT COUNT(*) FROM journals WHERE status = 'REVIEWED') + (SELECT COUNT(*) FROM vouchers WHERE status = 'REVIEWED') FROM dual
 UNION ALL
-SELECT 'مستندات معتمدة بانتظار الترحيل',
-       (SELECT COUNT(*) FROM journals WHERE status = 'APPROVED') + (SELECT COUNT(*) FROM vouchers WHERE status = 'APPROVED') FROM dual
-UNION ALL
 SELECT 'مستندات معادة للمدخل',
        (SELECT COUNT(*) FROM journals WHERE status = 'RETURNED') + (SELECT COUNT(*) FROM vouchers WHERE status = 'RETURNED') FROM dual
 UNION ALL
