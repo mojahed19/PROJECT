@@ -40,6 +40,8 @@ PROMPT ===== 15_damaged_goods.sql
 @db/15_damaged_goods.sql
 PROMPT ===== 16_fs_notes.sql
 @db/16_fs_notes.sql
+PROMPT ===== 17_indexes.sql
+@db/17_indexes.sql
 
 PROMPT ===== Invalid objects check
 SELECT object_type, object_name FROM user_objects WHERE status = 'INVALID';
