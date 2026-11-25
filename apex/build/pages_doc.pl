@@ -1108,15 +1108,20 @@ page(id => 121, name => 'الموازنة مقابل الفعلي', alias => 'BU
 region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5);
 item(name => 'P121_COMPANY_ID', region => 'f', type => 'select', label => 'الشركة', lov => $LOV{companies}, null => 'كل الشركات (مجمّع)', submit => 1);
 item(name => 'P121_FY_YEAR', region => 'f', type => 'select', label => 'السنة', lov => $LOV{years}, submit => 1, seq => 20, same_line => 1);
-item(name => 'P121_TO_MONTH', region => 'f', type => 'select', label => 'حتى شهر', submit => 1, seq => 30, same_line => 1,
-     lov => "SELECT LEVEL d, LEVEL r FROM dual CONNECT BY LEVEL <= 12");
+# الشهر: "كل الشهور" = السنة كاملة ، وطريقة العرض: تراكمي حتى الشهر أو الشهر وحده
+item(name => 'P121_TO_MONTH', region => 'f', type => 'select', label => 'الشهر', null => 'كل الشهور', submit => 1, seq => 30, same_line => 1,
+     lov => "SELECT DECODE(LEVEL, 1,'يناير',2,'فبراير',3,'مارس',4,'أبريل',5,'مايو',6,'يونيو',7,'يوليو',8,'أغسطس',9,'سبتمبر',10,'أكتوبر',11,'نوفمبر','ديسمبر') d, LEVEL r FROM dual CONNECT BY LEVEL <= 12");
+item(name => 'P121_MODE', region => 'f', type => 'select', label => 'طريقة العرض', submit => 1, seq => 35, same_line => 1,
+     lov => "SELECT 'تراكمي حتى الشهر' d, 'CUM' r FROM dual UNION ALL SELECT 'الشهر وحده', 'ONE' FROM dual");
 item(name => 'P121_LEVEL', region => 'f', type => 'select', label => 'المستوى', submit => 1, seq => 40, same_line => 1,
      lov => "SELECT 'المستوى ' || (LEVEL + 1) d, LEVEL + 1 r FROM dual CONNECT BY LEVEL <= 3");
 region(name => 'ir', title => 'الموازنة مقابل الفعلي', type => 'ir', sql => src('p121_ir.sql'), seq => 10);
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
   "IF :P121_FY_YEAR IS NULL THEN :P121_FY_YEAR := TO_CHAR(SYSDATE, 'YYYY'); END IF;",
-  "IF :P121_TO_MONTH IS NULL THEN :P121_TO_MONTH := TO_NUMBER(TO_CHAR(SYSDATE, 'MM')); END IF;",
+  "IF :P121_MODE IS NULL THEN :P121_MODE := 'CUM'; END IF;",
   "IF :P121_LEVEL IS NULL THEN :P121_LEVEL := 4; END IF;"));
+# القوائم تبقى على اختيارها بعد الإرسال
+branch_self('P121_COMPANY_ID', 'P121_FY_YEAR', 'P121_TO_MONTH', 'P121_MODE', 'P121_LEVEL');
 end_page();
 
 # =====================================================================
