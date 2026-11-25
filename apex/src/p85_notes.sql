@@ -2,10 +2,13 @@ DECLARE
   -- الإيضاحات للفترة تجميعياً حسب مستوى شجرة الحسابات:
   --   كل حساب في "مستوى التجميع" إيضاح مستقل ، تحته حساباته في "مستوى التفصيل" بمدين ودائن الفترة والرصيد ، ثم الإجمالي
   --   الرصيد = مدين الفترة − دائن الفترة (مع بيان طبيعته مدين/دائن) ، من القيود المرحّلة (والمعكوس مع عكسه يتصفّران)
+  --   عند اختيار حساب (P85_ACCOUNT_ID): إيضاحه وحده (الذمم المدينة ، الموردون ، النقدية ، الأصول ...) للطباعة منفرداً
   d1 DATE := TO_DATE(:P85_FROM, 'DD/MM/YYYY');
   d2 DATE := TO_DATE(:P85_TO,   'DD/MM/YYYY');
   lg NUMBER := NVL(TO_NUMBER(:P85_GROUP_LEVEL), 3);
   ld NUMBER := NVL(TO_NUMBER(:P85_DETAIL_LEVEL), 4);
+  l_acc NUMBER := TO_NUMBER(:P85_ACCOUNT_ID);
+  l_ld NUMBER;                                   -- مستوى التفصيل الفعلي لكل إيضاح
   n  NUMBER := 0;
   g_dr NUMBER; g_cr NUMBER; c_dr NUMBER; c_cr NUMBER; t_dr NUMBER := 0; t_cr NUMBER := 0;
 
@@ -35,18 +38,32 @@ BEGIN
   IF d1 IS NULL OR d2 IS NULL THEN htp.p('<p>حدد الفترة</p>'); RETURN; END IF;
   IF ld <= lg THEN ld := LEAST(lg + 1, 4); END IF;
 
-  htp.p('<div class="nt-head">الإيضاحات للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD')
-        || ' <span class="nt-sub">(التجميع على المستوى ' || lg || ' والتفصيل حتى المستوى ' || ld || ')</span></div>');
+  IF l_acc IS NULL THEN
+    htp.p('<div class="nt-head">الإيضاحات للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD')
+          || ' <span class="nt-sub">(التجميع على المستوى ' || lg || ' والتفصيل حتى المستوى ' || ld || ')</span></div>');
+  ELSE
+    htp.p('<div class="nt-head">إيضاح للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD') || '</div>');
+  END IF;
 
-  FOR g IN (SELECT account_code, name_ar FROM accounts WHERE acc_level = lg ORDER BY account_code) LOOP
+  -- كل حسابات مستوى التجميع ، أو الحساب المختار وحده
+  FOR g IN (SELECT account_code, name_ar, acc_level FROM accounts
+            WHERE (l_acc IS NULL AND acc_level = lg) OR account_id = l_acc
+            ORDER BY account_code) LOOP
     mv(g.account_code, g_dr, g_cr);
+    IF l_acc IS NOT NULL AND ROUND(g_dr, 2) = 0 AND ROUND(g_cr, 2) = 0 THEN
+      htp.p('<p class="nt-empty">لا توجد حركات مرحّلة على ' || e(g.account_code || ' - ' || g.name_ar) || ' في الفترة</p>');
+      RETURN;
+    END IF;
     CONTINUE WHEN ROUND(g_dr, 2) = 0 AND ROUND(g_cr, 2) = 0;
     n := n + 1;
     t_dr := t_dr + g_dr; t_cr := t_cr + g_cr;
-    htp.p('<div class="nt-block"><div class="nt-title">إيضاح رقم ' || n || ': ' || e(g.account_code) || ' - ' || e(g.name_ar) || '</div>');
+    -- الحساب المختار: التفصيل أعمق منه بمستوى على الأقل (حساب المستوى 4 يظهر وحده)
+    l_ld := CASE WHEN l_acc IS NULL THEN ld ELSE GREATEST(ld, LEAST(g.acc_level + 1, 4)) END;
+    htp.p('<div class="nt-block"><div class="nt-title">' || CASE WHEN l_acc IS NULL THEN 'إيضاح رقم ' || n ELSE 'إيضاح' END
+          || ': ' || e(g.account_code) || ' - ' || e(g.name_ar) || '</div>');
     htp.p('<table class="fs"><thead><tr><th>الحساب</th><th>رقم الحساب</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>');
     FOR c IN (SELECT account_code, name_ar FROM accounts
-              WHERE acc_level = ld AND account_code LIKE g.account_code || '%' ORDER BY account_code) LOOP
+              WHERE acc_level = l_ld AND account_code LIKE g.account_code || '%' ORDER BY account_code) LOOP
       mv(c.account_code, c_dr, c_cr);
       IF ROUND(c_dr, 2) <> 0 OR ROUND(c_cr, 2) <> 0 THEN
         row_(c.name_ar, c.account_code, c_dr, c_cr);
@@ -58,7 +75,7 @@ BEGIN
 
   IF n = 0 THEN
     htp.p('<p class="nt-empty">لا توجد حركات مرحّلة في الفترة</p>');
-  ELSE
+  ELSIF l_acc IS NULL THEN
     -- إجمالي كل الإيضاحات: مجموع المدين يساوي مجموع الدائن عند توازن القيود
     htp.p('<div class="nt-block"><table class="fs"><tbody>');
     row_('إجمالي الإيضاحات', NULL, t_dr, t_cr, 'grand');

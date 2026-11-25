@@ -875,6 +875,9 @@ item(name => 'P85_FROM', region => 'f', type => 'date', label => 'من تاري�
 item(name => 'P85_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 20, same_line => 1, required => 1);
 item(name => 'P85_GROUP_LEVEL',  region => 'f', type => 'select', label => 'مستوى التجميع (الإيضاح)', lov => $levels, seq => 30);
 item(name => 'P85_DETAIL_LEVEL', region => 'f', type => 'select', label => 'مستوى التفصيل', lov => $levels, seq => 40, same_line => 1);
+# إيضاح بند واحد (الذمم المدينة ، الموردون ، النقدية ، الأصول ...) لطباعته منفرداً
+item(name => 'P85_ACCOUNT_ID', region => 'f', type => 'select', label => 'إيضاح بند واحد', null => 'كل الإيضاحات', submit => 1, seq => 50,
+     lov => "SELECT LPAD(' ', (acc_level - 1) * 4, ' ') || account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE acc_level <= 3 ORDER BY account_code");
 button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
 button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
 region(name => 'notes', title => 'الإيضاحات', type => 'plsql', no_header => 1, seq => 10, plsql => src('p85_notes.sql'));
@@ -883,7 +886,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n
   "IF :P85_TO IS NULL THEN :P85_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;",
   "IF :P85_GROUP_LEVEL IS NULL THEN :P85_GROUP_LEVEL := '3'; END IF;",
   "IF :P85_DETAIL_LEVEL IS NULL THEN :P85_DETAIL_LEVEL := '4'; END IF;"));
-branch_self('P85_FROM', 'P85_TO', 'P85_GROUP_LEVEL', 'P85_DETAIL_LEVEL');
+branch_self('P85_FROM', 'P85_TO', 'P85_GROUP_LEVEL', 'P85_DETAIL_LEVEL', 'P85_ACCOUNT_ID');
 end_page();
 
 page(id => 81, name => 'كشف حساب', alias => 'STATEMENT', auth => 'IS_ACCOUNTANT');
