@@ -843,6 +843,47 @@ SQL
 branch_self('P84_FROM', 'P84_TO');
 end_page();
 
+# =====================================================================
+# 85 الإيضاحات للفترة تجميعياً حسب مستوى شجرة الحسابات (مدين ، دائن ، الرصيد) مع الطباعة
+# =====================================================================
+my $levels = "SELECT 'المستوى ' || LEVEL d, LEVEL r FROM dual CONNECT BY LEVEL <= 4";
+page(id => 85, name => 'الإيضاحات', alias => 'FS-NOTES', auth => 'IS_ACCOUNTANT', css => <<'CSS');
+.nt-head { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 4px 0 14px; direction: rtl; }
+.nt-sub { font-size: 12px; font-weight: 400; text-decoration: none; color: #555; }
+.nt-block { max-width: 860px; margin: 0 auto 18px; direction: rtl; }
+.nt-title { font-size: 15px; font-weight: 700; margin: 0 0 6px; text-decoration: underline; }
+.nt-dir { font-size: 11px; color: #555; }
+.nt-empty { text-align: center; color: #777; }
+.fs { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fs th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px; text-align: center; }
+.fs td { padding: 3px 6px; border-bottom: 1px solid #eee; }
+.fs td.n { text-align: left; direction: ltr; white-space: nowrap; width: 18%; }
+.fs td.nt { text-align: center; color: #555; width: 11%; }
+.fs tr.grand td { font-weight: 700; border-top: 1px solid #000; border-bottom: 3px double #000; }
+/* الطباعة: لا ينقسم الإيضاح الواحد بين ورقتين ، والاتجاه والمقاس من نافذة الطباعة */
+@page { margin: 10mm; }
+@media print {
+  .no-print { display: none !important; }
+  .nt-block { max-width: none; page-break-inside: avoid; break-inside: avoid; }
+  .fs { font-size: 12px; }
+}
+CSS
+region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');
+item(name => 'P85_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 10, required => 1);
+item(name => 'P85_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 20, same_line => 1, required => 1);
+item(name => 'P85_GROUP_LEVEL',  region => 'f', type => 'select', label => 'مستوى التجميع (الإيضاح)', lov => $levels, seq => 30);
+item(name => 'P85_DETAIL_LEVEL', region => 'f', type => 'select', label => 'مستوى التفصيل', lov => $levels, seq => 40, same_line => 1);
+button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
+region(name => 'notes', title => 'الإيضاحات', type => 'plsql', no_header => 1, seq => 10, plsql => src('p85_notes.sql'));
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P85_FROM IS NULL THEN :P85_FROM := '01/01/' || TO_CHAR(SYSDATE, 'YYYY'); END IF;",
+  "IF :P85_TO IS NULL THEN :P85_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;",
+  "IF :P85_GROUP_LEVEL IS NULL THEN :P85_GROUP_LEVEL := '3'; END IF;",
+  "IF :P85_DETAIL_LEVEL IS NULL THEN :P85_DETAIL_LEVEL := '4'; END IF;"));
+branch_self('P85_FROM', 'P85_TO', 'P85_GROUP_LEVEL', 'P85_DETAIL_LEVEL');
+end_page();
+
 page(id => 81, name => 'كشف حساب', alias => 'STATEMENT', auth => 'IS_ACCOUNTANT');
 region(name => 'f', title => 'الخيارات', type => 'static', seq => 5,
        html => '<div class="doc-meta" style="margin-bottom:8px"><b>&P81_ACC_INFO.</b></div>');
