@@ -1149,6 +1149,45 @@ branch_self('P93_ITEM_ID', 'P93_WAREHOUSE_ID', 'P93_FROM', 'P93_TO');
 end_page();
 
 # =====================================================================
+# 96 ملخص الخزائن والبنوك: لكل خزينة / بنك رصيد أول المدة والمقبوض والمدفوع والرصيد الختامي (يوم أو فترة)
+# =====================================================================
+page(id => 96, name => 'ملخص الخزائن والبنوك', alias => 'CASH-SUMMARY', auth => 'IS_ACCOUNTANT', css => <<'CSS');
+.nt-head { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 4px 0 14px; direction: rtl; }
+.nt-block { max-width: 1000px; margin: 0 auto 18px; direction: rtl; }
+.nt-empty { text-align: center; color: #777; }
+.fs { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fs th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px; text-align: center; }
+.fs td { padding: 3px 6px; border-bottom: 1px solid #eee; }
+.fs td.n { text-align: left; direction: ltr; white-space: nowrap; }
+.fs td.n.b { font-weight: 700; }
+.fs td.n.in { color: #146b2d; }
+.fs td.n.out { color: #b00; }
+.fs td.nt { text-align: center; color: #555; white-space: nowrap; }
+.fs td.lbl a { color: inherit; text-decoration: none; border-bottom: 1px dotted #888; }
+.fs tr.sec td { font-weight: 700; text-decoration: underline; padding-top: 10px; border-bottom: none; }
+.fs tr.tot td { font-weight: 700; border-top: 1px solid #000; }
+.fs tr.grand td { font-weight: 700; border-top: 1px solid #000; border-bottom: 3px double #000; }
+@page { margin: 10mm; }
+@media print {
+  .no-print { display: none !important; }
+  .nt-block { max-width: none; }
+  .fs { font-size: 12px; }
+  .fs td.lbl a { border: none; }
+}
+CSS
+region(name => 'f', title => 'الفترة', type => 'static', html => '', seq => 5, class => 'no-print');
+item(name => 'P96_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 10, required => 1);
+item(name => 'P96_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 20, same_line => 1, required => 1);
+button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
+region(name => 'cash', title => 'ملخص الخزائن والبنوك', type => 'plsql', no_header => 1, seq => 10, plsql => src('p96_cash.sql'));
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P96_FROM IS NULL THEN :P96_FROM := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;",
+  "IF :P96_TO IS NULL THEN :P96_TO := :P96_FROM; END IF;"));
+branch_self('P96_FROM', 'P96_TO');
+end_page();
+
+# =====================================================================
 # 100 مسير الرواتب + 101 قسيمة + 102 التوزيع
 # =====================================================================
 page(id => 100, name => 'مسير الرواتب', alias => 'PAYROLL', auth => 'IS_HR');
