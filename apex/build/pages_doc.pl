@@ -848,7 +848,7 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n
 branch_self('P92_WAREHOUSE_ID', 'P92_FROM', 'P92_TO');
 end_page();
 
-page(id => 93, name => 'كارت صنف', alias => 'ITEM-CARD', auth => 'IS_STORE');
+page(id => 93, name => 'كارت العهدة', alias => 'ITEM-CARD', auth => 'IS_STORE');
 region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5);
 item(name => 'P93_ITEM_ID', region => 'f', type => 'popup', label => 'الصنف', lov => "SELECT item_code || ' - ' || name_ar d, item_id r FROM items ORDER BY item_code", required => 1);
 item(name => 'P93_WAREHOUSE_ID', region => 'f', type => 'select', label => 'المخزن', lov => $LOV{warehouses}, null => 1, seq => 20, same_line => 1, required => 1);
