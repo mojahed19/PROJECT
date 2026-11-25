@@ -2,12 +2,20 @@ WITH p AS (
   SELECT TO_DATE(:P92_FROM, 'DD/MM/YYYY') d1, TO_DATE(:P92_TO, 'DD/MM/YYYY') d2, TO_NUMBER(:P92_WAREHOUSE_ID) wh FROM dual
 ),
 mv AS (
-  -- حركات المخزن المعتمدة بالوحدة الصغرى: المرحل قبل الفترة ، ثم الوارد والمنصرف والتالف خلالها
+  -- حركات المخزن المعتمدة بالوحدة الصغرى:
+  --   المرحل  = الموجود فعلياً قبل الفترة (التالف غير المصفّى ما زال في المخزن ، والمصفّى خرج)
+  --   الوارد / المنصرف خلال الفترة ، والتالف المصفّى في الفترة يُحسب منصرفاً (تخلّص نهائي)
+  --   التالف  = التالف غير المصفّى حتى نهاية الفترة (يصبح صفراً بعد تصفيره)
+  --   الحالي  = المرحل + الوارد − المنصرف − التالف
   SELECT l.item_id,
-         SUM(CASE WHEN t.trans_date < p.d1 THEN l.qty_base ELSE 0 END) op,
-         SUM(CASE WHEN t.trans_date >= p.d1 AND t.trans_type <> 'DAMAGE' AND l.qty_base > 0 THEN l.qty_base ELSE 0 END) qin,
-         SUM(CASE WHEN t.trans_date >= p.d1 AND t.trans_type <> 'DAMAGE' AND l.qty_base < 0 THEN -l.qty_base ELSE 0 END) qout,
-         SUM(CASE WHEN t.trans_date >= p.d1 AND t.trans_type = 'DAMAGE' THEN -l.qty_base ELSE 0 END) qdmg
+         SUM(CASE WHEN t.trans_date < p.d1 THEN
+                   CASE t.trans_type WHEN 'DAMAGE' THEN 0 WHEN 'DAMAGE_WO' THEN -(l.qty * l.factor) ELSE l.qty_base END
+                  ELSE 0 END) op,
+         SUM(CASE WHEN t.trans_date >= p.d1 AND t.trans_type NOT IN ('DAMAGE','DAMAGE_WO') AND l.qty_base > 0 THEN l.qty_base ELSE 0 END) qin,
+         SUM(CASE WHEN t.trans_date >= p.d1 AND t.trans_type NOT IN ('DAMAGE','DAMAGE_WO') AND l.qty_base < 0 THEN -l.qty_base
+                  WHEN t.trans_date >= p.d1 AND t.trans_type = 'DAMAGE_WO' THEN l.qty * l.factor
+                  ELSE 0 END) qout,
+         SUM(CASE t.trans_type WHEN 'DAMAGE' THEN -l.qty_base WHEN 'DAMAGE_WO' THEN -(l.qty * l.factor) ELSE 0 END) qdmg
   FROM   stock_trans_lines l
   JOIN   stock_trans t ON t.trans_id = l.trans_id AND t.status = 'POSTED'
   CROSS JOIN p
