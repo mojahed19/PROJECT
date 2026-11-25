@@ -1047,15 +1047,18 @@ page(id => 90, name => 'حركة مخزون', alias => 'STOCK', title => '&P90_T
 region(name => 'head', title => '&P90_TITLE.', type => 'static', html => doc_status_html('P90_TRANS_NO', 'P90_STATUS', 'الرقم', 'P90'));
 item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1]) for (['P90_TRANS_ID',1],['P90_TRANS_TYPE',2],['P90_TRANS_NO',3],['P90_STATUS',4],['P90_TITLE',5]);
 item(name => 'P90_COMPANY_ID', region => 'head', type => 'select', label => 'الشركة', lov => $LOV{companies}, seq => 10, required => 1);
-item(name => 'P90_TRANS_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, same_line => 1, required => 1);
-item(name => 'P90_WAREHOUSE_ID', region => 'head', type => 'select', label => 'المخزن', lov => $LOV{warehouses}, null => 1, seq => 30, required => 1);
-item(name => 'P90_TO_WAREHOUSE_ID', region => 'head', type => 'select', label => 'إلى مخزن', lov => $LOV{warehouses}, null => 1, seq => 40, same_line => 1,
+# ترتيب الحقول كما ضبطه المستخدم في APEX Builder (2026-11-25): التاريخ ثم المخزن والبيان في نفس السطر ،
+# "إلى مخزن" في سطر جديد بجانبه الحساب المقابل ، والعملة وسعر الصرف حقلان مخفيان
+item(name => 'P90_TRANS_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, required => 1);
+item(name => 'P90_WAREHOUSE_ID', region => 'head', type => 'select', label => 'المخزن', lov => $LOV{warehouses}, null => 1, seq => 30, same_line => 1, required => 1);
+item(name => 'P90_DESCRIPTION', region => 'head', label => 'البيان', seq => 40, same_line => 1, max => 500);
+item(name => 'P90_TO_WAREHOUSE_ID', region => 'head', type => 'select', label => 'إلى مخزن', lov => $LOV{warehouses}, null => 1, seq => 50,
      cond => ":P90_TRANS_TYPE = 'TRANSFER'");
-item(name => 'P90_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label => 'الحساب المقابل', lov => $LOV{accounts4}, seq => 50, same_line => 1,
+item(name => 'P90_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label => 'الحساب المقابل', lov => $LOV{accounts4}, seq => 60, same_line => 1,
      cond => ":P90_TRANS_TYPE IN ('RECEIPT','ISSUE')");
-item(name => 'P90_CURRENCY_CODE', region => 'head', type => 'select', label => 'العملة', lov => $LOV{currencies}, seq => 60, cond => ":P90_TRANS_TYPE IN ('RECEIPT','OPENING')");
-item(name => 'P90_EXCHANGE_RATE', region => 'head', label => 'سعر الصرف', seq => 70, same_line => 1, cond => ":P90_TRANS_TYPE IN ('RECEIPT','OPENING')");
-item(name => 'P90_DESCRIPTION', region => 'head', label => 'البيان', seq => 80, max => 500);
+item(name => 'P90_CURRENCY_CODE', region => 'head', type => 'hidden', seq => 70, cond => ":P90_TRANS_TYPE IN ('RECEIPT','OPENING')");
+item(name => 'P90_EXCHANGE_RATE', region => 'head', type => 'hidden', seq => 80, cond => ":P90_TRANS_TYPE IN ('RECEIPT','OPENING')");
+
 region(name => 'lines', title => 'الأصناف', type => 'static', seq => 20, html => '<div id="st_lines"></div>');
 $draft = can_save('P90_STATUS');
 button(name => 'SAVE_DRAFT', region => 'lines', label => 'حفظ (Ctrl+S)', js => "stk.save('DRAFT');", hot => 1, seq => 10, cond => $draft);

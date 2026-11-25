@@ -212,6 +212,9 @@ BEGIN
       WHERE journal_id = l_jid;
     END IF;
 
+    -- تصفير التوالف: قيد خسائر التوالف (اختياري حسب الإعداد DAMAGE_LOSS ، db/25)
+    IF l_type = 'DAMAGE_WO' THEN l_jid := damage_wo_journal(l_id, :APP_USER); END IF;
+
     UPDATE stock_trans SET status = 'POSTED', journal_id = l_jid WHERE trans_id = l_id;
   END IF;
 

@@ -58,7 +58,7 @@ wwv_imp_workspace.create_flow(
 ,p_substitution_string_01=>'APP_NAME'
 ,p_substitution_value_01=>unistr('\0627\0644\0645\0624\0633\0633\0629 \0627\0644\062A\0639\0627\0648\0646\064A\0629 \0627\0644\0648\0637\0646\064A\0629')
 ,p_file_prefix=>nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
-,p_files_version=>95645617
+,p_files_version=>95646128
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 );
@@ -30538,7 +30538,7 @@ unistr('  -- \0627\0644\0625\064A\0636\0627\062D = \0631\0642\0645 \0627\0644\06
 '  d2 DATE := TO_DATE(:P84_TO,   ''DD/MM/YYYY'');',
 unistr('  l_fy DATE;                                   -- \0628\062F\0627\064A\0629 \0627\0644\0633\0646\0629 \0627\0644\0645\0627\0644\064A\0629 \0627\0644\062A\064A \0641\064A\0647\0627 "\0625\0644\0649 \062A\0627\0631\064A\062E"'),
 '  l_cost_grp VARCHAR2(20); l_sales_grp VARCHAR2(20); l_ret VARCHAR2(20);',
-'  l_cogs NUMBER; l_rev_gross NUMBER; l_returns NUMBER; l_net_rev NUMBER; l_dmg NUMBER := 0;',
+'  l_cogs NUMBER; l_rev_gross NUMBER; l_returns NUMBER; l_net_rev NUMBER; l_dmg NUMBER := 0; l_dmg_code VARCHAR2(30);',
 '  l_gross_op NUMBER; l_other_rev NUMBER; l_gross NUMBER; l_admin NUMBER; l_dep NUMBER; l_tax NUMBER;',
 '  l_before_tax NUMBER; l_net NUMBER; l_tot_rev NUMBER; l_tot_exp NUMBER;',
 '  l_assets NUMBER := 0; l_eq_liab NUMBER := 0; l_sec NUMBER; l_eq NUMBER;',
@@ -30637,12 +30637,18 @@ unistr('  l_returns   := CASE WHEN l_ret IS NOT NULL THEN b(l_ret, d1, d2) ELSE 
 '  l_rev_gross := CASE WHEN l_sales_grp IS NOT NULL THEN -b(l_sales_grp, d1, d2) ELSE 0 END + l_returns;',
 '  l_net_rev   := l_rev_gross - l_returns;',
 '  l_cogs      := CASE WHEN l_cost_grp IS NOT NULL THEN b(l_cost_grp, d1, d2) ELSE 0 END;',
+unistr('  -- \062A\0644\0641\064A\0627\062A \0627\0644\0645\062E\0632\0648\0646 = \0631\0635\064A\062F \062D\0633\0627\0628 \062E\0633\0627\0626\0631 \0627\0644\062A\0648\0627\0644\0641 (\0625\0639\062F\0627\062F DAMAGE_LOSS) \060C \0648\064A\064F\062E\0631\062C \0645\0646 \0627\0644\062A\0643\0644\0641\0629 \0623\0648 \0627\0644\0645\0635\0631\0648\0641\0627\062A \062D\062A\0649 \0644\0627 \064A\062A\0643\0631\0631'),
+'  SELECT MAX(a.account_code) INTO l_dmg_code FROM account_settings s JOIN accounts a ON a.account_id = s.account_id WHERE s.setting_code = ''DAMAGE_LOSS'';',
+'  IF l_dmg_code IS NOT NULL THEN',
+'    l_dmg := b(l_dmg_code, d1, d2);',
+'    IF l_dmg_code LIKE l_cost_grp || ''%'' THEN l_cogs := l_cogs - l_dmg; END IF;',
+'  END IF;',
 '  l_gross_op  := l_net_rev - l_cogs - l_dmg;',
 '  l_other_rev := l_tot_rev - l_net_rev;',
 '  l_gross     := l_gross_op + l_other_rev;',
 unistr('  l_dep       := bn(''EXP'', ''%\0625\0647\0644\0627\0643%'', ''%\0627\0647\0644\0627\0643%'', d1, d2);'),
 unistr('  l_tax       := bn(''EXP'', ''%\0636\0631\064A\0628%'', ''%\0632\0643\0627%'', d1, d2);'),
-'  l_admin     := l_tot_exp - l_cogs - l_dep - l_tax;',
+'  l_admin     := l_tot_exp - l_cogs - l_dmg - l_dep - l_tax;',
 '  l_before_tax:= l_gross - l_admin - l_dep;',
 '  l_net       := l_before_tax - l_tax;',
 '',
@@ -30654,7 +30660,8 @@ unistr('  ------------------------------------------------------------------ 2) 
 '  htp.p(''<div class="fs-page">'');',
 unistr('  head(''\062A\0643\0644\0641\0629 \0627\0644\0645\0628\064A\0639\0627\062A \0644\0644\0641\062A\0631\0629 \0645\0646 '' || TO_CHAR(d1, ''YYYY/MM/DD'') || '' \0625\0644\0649 '' || TO_CHAR(d2, ''YYYY/MM/DD''),'),
 unistr('       ''<th>\0627\0644\0628\064A\0627\0646</th><th>\0627\0644\0625\064A\0636\0627\062D</th><th>\0627\0644\0645\0628\0644\063A</th>'');'),
-'  FOR a IN (SELECT account_code, name_ar FROM accounts WHERE acc_level = 4 AND account_code LIKE l_cost_grp || ''%'' ORDER BY account_code) LOOP',
+'  FOR a IN (SELECT account_code, name_ar FROM accounts WHERE acc_level = 4 AND account_code LIKE l_cost_grp || ''%''',
+'            AND account_code <> NVL(l_dmg_code, ''-'') ORDER BY account_code) LOOP',
 '    r3(a.name_ar, ''CS:'' || a.account_code, b(a.account_code, d1, d2));',
 '  END LOOP;',
 unistr('  r3(''\0635\0627\0641\064A \062A\0643\0644\0641\0629 \0627\0644\0645\0628\064A\0639\0627\062A'', NULL, l_cogs, ''grand'');'),
@@ -32501,7 +32508,6 @@ wwv_flow_imp_page.create_page_item(
 ,p_cSize=>32
 ,p_display_as=>'NATIVE_DATE_PICKER_APEX'
 ,p_format_mask=>'DD/MM/YYYY'
-,p_begin_on_new_line=>'N'
 ,p_field_template=>wwv_flow_imp.id(6769647329757532)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
@@ -32520,14 +32526,33 @@ wwv_flow_imp_page.create_page_item(
 ,p_lov_display_extra=>'NO'
 ,p_lov_display_null=>'YES'
 ,p_lov_null_text=>''
+,p_begin_on_new_line=>'N'
 ,p_field_template=>wwv_flow_imp.id(6769647329757532)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
 );
 wwv_flow_imp_page.create_page_item(
  p_id=>wwv_flow_imp.id(91000000000712)
-,p_name=>'P90_TO_WAREHOUSE_ID'
+,p_name=>'P90_DESCRIPTION'
 ,p_item_sequence=>40
+,p_item_plug_id=>wwv_flow_imp.id(91000000000703)
+,p_prompt=>unistr('\0627\0644\0628\064A\0627\0646')
+,p_attribute_01=>'N'
+,p_attribute_02=>'N'
+,p_attribute_04=>'TEXT'
+,p_attribute_05=>'BOTH'
+,p_cMaxlength=>500
+,p_cSize=>30
+,p_display_as=>'NATIVE_TEXT_FIELD'
+,p_begin_on_new_line=>'N'
+,p_field_template=>wwv_flow_imp.id(6768309489757532)
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(91000000000713)
+,p_name=>'P90_TO_WAREHOUSE_ID'
+,p_item_sequence=>50
 ,p_item_plug_id=>wwv_flow_imp.id(91000000000703)
 ,p_prompt=>unistr('\0625\0644\0649 \0645\062E\0632\0646')
 ,p_attribute_01=>'NONE'
@@ -32538,7 +32563,6 @@ wwv_flow_imp_page.create_page_item(
 ,p_lov_display_extra=>'NO'
 ,p_lov_display_null=>'YES'
 ,p_lov_null_text=>''
-,p_begin_on_new_line=>'N'
 ,p_field_template=>wwv_flow_imp.id(6768309489757532)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
@@ -32547,9 +32571,9 @@ wwv_flow_imp_page.create_page_item(
 ,p_display_when_type=>'EXPRESSION'
 );
 wwv_flow_imp_page.create_page_item(
- p_id=>wwv_flow_imp.id(91000000000713)
+ p_id=>wwv_flow_imp.id(91000000000714)
 ,p_name=>'P90_COUNTER_ACCOUNT_ID'
-,p_item_sequence=>50
+,p_item_sequence=>60
 ,p_item_plug_id=>wwv_flow_imp.id(91000000000703)
 ,p_prompt=>unistr('\0627\0644\062D\0633\0627\0628 \0627\0644\0645\0642\0627\0628\0644')
 ,p_attribute_01=>'POPUP'
@@ -32570,29 +32594,13 @@ wwv_flow_imp_page.create_page_item(
 ,p_display_when_type=>'EXPRESSION'
 );
 wwv_flow_imp_page.create_page_item(
- p_id=>wwv_flow_imp.id(91000000000714)
-,p_name=>'P90_CURRENCY_CODE'
-,p_item_sequence=>60
-,p_item_plug_id=>wwv_flow_imp.id(91000000000703)
-,p_prompt=>unistr('\0627\0644\0639\0645\0644\0629')
-,p_attribute_01=>'N'
-,p_display_as=>'NATIVE_HIDDEN'
-,p_field_template=>wwv_flow_imp.id(6768064019757529)
-,p_item_template_options=>'#DEFAULT#'
-,p_is_persistent=>'N'
-,p_display_when=>':P90_TRANS_TYPE IN (''RECEIPT'',''OPENING'')'
-,p_display_when2=>'PLSQL'
-,p_display_when_type=>'EXPRESSION'
-);
-wwv_flow_imp_page.create_page_item(
  p_id=>wwv_flow_imp.id(91000000000715)
-,p_name=>'P90_EXCHANGE_RATE'
+,p_name=>'P90_CURRENCY_CODE'
 ,p_item_sequence=>70
 ,p_item_plug_id=>wwv_flow_imp.id(91000000000703)
-,p_prompt=>unistr('\0633\0639\0631 \0627\0644\0635\0631\0641')
+,p_prompt=>'P90_CURRENCY_CODE'
 ,p_attribute_01=>'N'
 ,p_display_as=>'NATIVE_HIDDEN'
-,p_begin_on_new_line=>'N'
 ,p_field_template=>wwv_flow_imp.id(6768064019757529)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
@@ -32602,20 +32610,18 @@ wwv_flow_imp_page.create_page_item(
 );
 wwv_flow_imp_page.create_page_item(
  p_id=>wwv_flow_imp.id(91000000000716)
-,p_name=>'P90_DESCRIPTION'
+,p_name=>'P90_EXCHANGE_RATE'
 ,p_item_sequence=>80
 ,p_item_plug_id=>wwv_flow_imp.id(91000000000703)
-,p_prompt=>unistr('\0627\0644\0628\064A\0627\0646')
+,p_prompt=>'P90_EXCHANGE_RATE'
 ,p_attribute_01=>'N'
-,p_attribute_02=>'N'
-,p_attribute_04=>'TEXT'
-,p_attribute_05=>'BOTH'
-,p_cMaxlength=>500
-,p_cSize=>30
-,p_display_as=>'NATIVE_TEXT_FIELD'
-,p_field_template=>wwv_flow_imp.id(6768309489757532)
+,p_display_as=>'NATIVE_HIDDEN'
+,p_field_template=>wwv_flow_imp.id(6768064019757529)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
+,p_display_when=>':P90_TRANS_TYPE IN (''RECEIPT'',''OPENING'')'
+,p_display_when2=>'PLSQL'
+,p_display_when_type=>'EXPRESSION'
 );
 wwv_flow_imp_page.create_page_plug(
  p_id=>wwv_flow_imp.id(91000000000717)
@@ -32888,6 +32894,9 @@ unistr('        jline(2, l_counter, -l_val);                                -- \
 '                          total_credit = (SELECT SUM(credit) FROM journal_lines WHERE journal_id = l_jid)',
 '      WHERE journal_id = l_jid;',
 '    END IF;',
+'',
+unistr('    -- \062A\0635\0641\064A\0631 \0627\0644\062A\0648\0627\0644\0641: \0642\064A\062F \062E\0633\0627\0626\0631 \0627\0644\062A\0648\0627\0644\0641 (\0627\062E\062A\064A\0627\0631\064A \062D\0633\0628 \0627\0644\0625\0639\062F\0627\062F DAMAGE_LOSS \060C db/25)'),
+'    IF l_type = ''DAMAGE_WO'' THEN l_jid := damage_wo_journal(l_tid, :APP_USER); END IF;',
 '',
 '    UPDATE stock_trans SET status = ''POSTED'', journal_id = l_jid WHERE trans_id = l_tid;',
 'END;',
@@ -33268,6 +33277,9 @@ unistr('        jline(2, l_counter, -l_val);                                -- \
 '                          total_credit = (SELECT SUM(credit) FROM journal_lines WHERE journal_id = l_jid)',
 '      WHERE journal_id = l_jid;',
 '    END IF;',
+'',
+unistr('    -- \062A\0635\0641\064A\0631 \0627\0644\062A\0648\0627\0644\0641: \0642\064A\062F \062E\0633\0627\0626\0631 \0627\0644\062A\0648\0627\0644\0641 (\0627\062E\062A\064A\0627\0631\064A \062D\0633\0628 \0627\0644\0625\0639\062F\0627\062F DAMAGE_LOSS \060C db/25)'),
+'    IF l_type = ''DAMAGE_WO'' THEN l_jid := damage_wo_journal(l_id, :APP_USER); END IF;',
 '',
 '    UPDATE stock_trans SET status = ''POSTED'', journal_id = l_jid WHERE trans_id = l_id;',
 '  END IF;',
@@ -41786,7 +41798,7 @@ wwv_flow_imp_page.create_page_plug(
 ,p_plug_display_sequence=>10
 ,p_plug_source=>wwv_flow_string.join(wwv_flow_t_varchar2(
 'SELECT t.ROWID,',
-unistr('       (SELECT x.d FROM (SELECT code || '' - '' || n d, code r FROM (SELECT ''SALES_EXT'' code, ''\0627\0644\0645\0628\064A\0639\0627\062A \0627\0644\0646\0642\062F\064A\0629'' n FROM dual UNION ALL SELECT ''SALES_CREDIT'', ''\0627\0644\0645\0628\064A\0639\0627\062A \0627\0644\0622\062C\0644\0629'' FROM dual UNION ALL SELECT ''SALES'', ''\0645\0628\064A\0639\0627\062A \0644\0644\0634\0631\0643\0627\062A'' FROM dual UNION ALL SELECT ''SALES_RETURN'', ''\0645\0631\062F\0648\062F\0627\062A \0627\0644\0645\0628\064A\0639\0627\062A'' FROM dual UNION ALL SELECT ''INTERCO_AP'', ''\0645\0633\062A\062D\0642 \0644\0644\0634\0631\0643\0629 \0627\0644\0623\0645'' FROM dual UNION ALL SELECT ''PURCHASES'', ''\0648\0627\0631\062F \0645\0646 \0627\0644\0623\0645 (\0645\062E\0632\0648\0646)'' FROM dual UNION ALL SELECT ''INVENTORY'', ''\0627\0644\0645\062E\0632\0648\0646'' FROM dual UNION ALL SELECT ''COGS'', ''\062A\0643\0644\0641\0629 \0627\0644\0645\0628\064A\0639\0627\062A'' FROM dual UNION ALL SELECT ''INVENTORY_ADJ'', ''\0641\0631\0648\0642\0627\062A \0627\0644\062C\0631\062F'' FROM dual UNION ALL SELECT ''POS_SALES'', ''\0645\0628\064A\0639\0627\062A \0646\0642\0627\0637 \0627\0644\0628\064A\0639'' FROM dual UNION ALL SELECT ''CASH_DIFF'', ''\0639\062C\0632 \0648\0632\064A\0627\062F\0629 \0627\0644\062E\0632\0627\0626\0646'' FROM dual UNION ALL SELECT ''SALARY_EXP'', ''\0645\0635\0631\0648\0641 \0627\0644\0631\0648\0627\062A\0628'' FROM dual UNION ALL SELECT ''INCENTIVE_EXP'', ''\0645\0635\0631\0648\0641 \0627\0644\062D\0648\0627\0641\0632'' FROM dual UNION ALL SELECT ''SALARY_DIFF'', ''\0641\0631\0648\0642\0627\062A \0627\0644\0631\0648\0627\062A\0628'' FROM dual UNION ALL SELECT ''SALARY_PAYABLE'', ''\0631\0648\0627\062A\0628 \0645\0633\062A\062D\0642\0629'' FROM dual UNION ALL SELECT ''DEDUCTIONS'', ''\062E\0635\0648\0645\0627\062A \0627\0644\0645\0648\0638\0641\064A\0646'' FROM dual UNION ALL SELECT ''CHEQUES_IN'', ''\0634\064A\0643\0627\062A \062A\062D\062A \0627\0644\062A\062D\0635\064A\0644'' FROM dual UNION ALL SELECT ''CHEQUES_OUT'', ''\0634\064A\0643\0627\062A \062A\062D\062A \0627\0644\0635\0631\0641'' FROM dual UNION ALL SELECT ''RETAINED_EARNINGS'', ''\0627\0644\0623\0631\0628\0627\062D \0627\0644\0645\0631\062D\0651\0644\0629 (\0625\0642\0641\0627\0644 \0627\0644\0633\0646\0629)'' FROM dual)) x WHERE x.r = t.SETTING_CODE AND ROWNUM = 1) AS "\0627\0644\0625\0639\062F\0627\062F",'),
+unistr('       (SELECT x.d FROM (SELECT code || '' - '' || n d, code r FROM (SELECT ''SALES_EXT'' code, ''\0627\0644\0645\0628\064A\0639\0627\062A \0627\0644\0646\0642\062F\064A\0629'' n FROM dual UNION ALL SELECT ''SALES_CREDIT'', ''\0627\0644\0645\0628\064A\0639\0627\062A \0627\0644\0622\062C\0644\0629'' FROM dual UNION ALL SELECT ''SALES'', ''\0645\0628\064A\0639\0627\062A \0644\0644\0634\0631\0643\0627\062A'' FROM dual UNION ALL SELECT ''SALES_RETURN'', ''\0645\0631\062F\0648\062F\0627\062A \0627\0644\0645\0628\064A\0639\0627\062A'' FROM dual UNION ALL SELECT ''INTERCO_AP'', ''\0645\0633\062A\062D\0642 \0644\0644\0634\0631\0643\0629 \0627\0644\0623\0645'' FROM dual UNION ALL SELECT ''PURCHASES'', ''\0648\0627\0631\062F \0645\0646 \0627\0644\0623\0645 (\0645\062E\0632\0648\0646)'' FROM dual UNION ALL SELECT ''INVENTORY'', ''\0627\0644\0645\062E\0632\0648\0646'' FROM dual UNION ALL SELECT ''COGS'', ''\062A\0643\0644\0641\0629 \0627\0644\0645\0628\064A\0639\0627\062A'' FROM dual UNION ALL SELECT ''INVENTORY_ADJ'', ''\0641\0631\0648\0642\0627\062A \0627\0644\062C\0631\062F'' FROM dual UNION ALL SELECT ''POS_SALES'', ''\0645\0628\064A\0639\0627\062A \0646\0642\0627\0637 \0627\0644\0628\064A\0639'' FROM dual UNION ALL SELECT ''CASH_DIFF'', ''\0639\062C\0632 \0648\0632\064A\0627\062F\0629 \0627\0644\062E\0632\0627\0626\0646'' FROM dual UNION ALL SELECT ''SALARY_EXP'', ''\0645\0635\0631\0648\0641 \0627\0644\0631\0648\0627\062A\0628'' FROM dual UNION ALL SELECT ''INCENTIVE_EXP'', ''\0645\0635\0631\0648\0641 \0627\0644\062D\0648\0627\0641\0632'' FROM dual UNION ALL SELECT ''SALARY_DIFF'', ''\0641\0631\0648\0642\0627\062A \0627\0644\0631\0648\0627\062A\0628'' FROM dual UNION ALL SELECT ''SALARY_PAYABLE'', ''\0631\0648\0627\062A\0628 \0645\0633\062A\062D\0642\0629'' FROM dual UNION ALL SELECT ''DEDUCTIONS'', ''\062E\0635\0648\0645\0627\062A \0627\0644\0645\0648\0638\0641\064A\0646'' FROM dual UNION ALL SELECT ''CHEQUES_IN'', ''\0634\064A\0643\0627\062A \062A\062D\062A \0627\0644\062A\062D\0635\064A\0644'' FROM dual UNION ALL SELECT ''CHEQUES_OUT'', ''\0634\064A\0643\0627\062A \062A\062D\062A \0627\0644\0635\0631\0641'' FROM dual UNION ALL SELECT ''RETAINED_EARNINGS'', ''\0627\0644\0623\0631\0628\0627\062D \0627\0644\0645\0631\062D\0651\0644\0629 (\0625\0642\0641\0627\0644 \0627\0644\0633\0646\0629)'' FROM dual UNION ALL SELECT ''DAMAGE_LOSS'', ''\062E\0633\0627\0626\0631 \0627\0644\062A\0648\0627\0644\0641 (\0642\064A\062F \0627\0644\062A\0635\0641\064A\0631 \060C \0627\062E\062A\064A\0627\0631\064A)'' FROM dual)) x WHERE x.r = t.SETTING_CODE AND ROWNUM = 1) AS "\0627\0644\0625\0639\062F\0627\062F",'),
 unistr('       (SELECT x.d FROM (SELECT account_code || '' - '' || name_ar d, account_id r FROM accounts WHERE is_postable = ''Y'' AND is_active = ''Y'' ORDER BY account_code) x WHERE x.r = t.ACCOUNT_ID AND ROWNUM = 1) AS "\0627\0644\062D\0633\0627\0628"'),
 'FROM account_settings t',
 'WHERE t.company_id = :G_PARENT_ID',
@@ -41949,7 +41961,7 @@ wwv_flow_imp_page.create_page_item(
 ,p_cHeight=>1
 ,p_display_as=>'NATIVE_SELECT_LIST'
 ,p_lov=>wwv_flow_string.join(wwv_flow_t_varchar2(
-unistr('SELECT code || '' - '' || n d, code r FROM (SELECT ''SALES_EXT'' code, ''\0627\0644\0645\0628\064A\0639\0627\062A \0627\0644\0646\0642\062F\064A\0629'' n FROM dual UNION ALL SELECT ''SALES_CREDIT'', ''\0627\0644\0645\0628\064A\0639\0627\062A \0627\0644\0622\062C\0644\0629'' FROM dual UNION ALL SELECT ''SALES'', ''\0645\0628\064A\0639\0627\062A \0644\0644\0634\0631\0643\0627\062A'' FROM dual UNION ALL SELECT ''SALES_RETURN'', ''\0645\0631\062F\0648\062F\0627\062A \0627\0644\0645\0628\064A\0639\0627\062A'' FROM dual UNION ALL SELECT ''INTERCO_AP'', ''\0645\0633\062A\062D\0642 \0644\0644\0634\0631\0643\0629 \0627\0644\0623\0645'' FROM dual UNION ALL SELECT ''PURCHASES'', ''\0648\0627\0631\062F \0645\0646 \0627\0644\0623\0645 (\0645\062E\0632\0648\0646)'' FROM dual UNION ALL SELECT ''INVENTORY'', ''\0627\0644\0645\062E\0632\0648\0646'' FROM dual UNION ALL SELECT ''COGS'', ''\062A\0643\0644\0641\0629 \0627\0644\0645\0628\064A\0639\0627\062A'' FROM dual UNION ALL SELECT ''INVENTORY_ADJ'', ''\0641\0631\0648\0642\0627\062A \0627\0644\062C\0631\062F'' FROM dual UNION ALL SELECT ''POS_SALES'', ''\0645\0628\064A\0639\0627\062A \0646\0642\0627\0637 \0627\0644\0628\064A\0639'' FROM dual UNION ALL SELECT ''CASH_DIFF'', ''\0639\062C\0632 \0648\0632\064A\0627\062F\0629 \0627\0644\062E\0632\0627\0626\0646'' FROM dual UNION ALL SELECT ''SALARY_EXP'', ''\0645\0635\0631\0648\0641 \0627\0644\0631\0648\0627\062A\0628'' FROM dual UNION ALL SELECT ''INCENTIVE_EXP'', ''\0645\0635\0631\0648\0641 \0627\0644\062D\0648\0627\0641\0632'' FROM dual UNION ALL SELECT ''SALARY_DIFF'', ''\0641\0631\0648\0642\0627\062A \0627\0644\0631\0648\0627\062A\0628'' FROM dual UNION ALL SELECT ''SALARY_PAYABLE'', ''\0631\0648\0627\062A\0628 \0645\0633\062A\062D\0642\0629'' FROM dual UNION ALL SELECT ''DEDUCTIONS'', ''\062E\0635\0648\0645\0627\062A \0627\0644\0645\0648\0638\0641\064A\0646'' FROM dual UNION ALL SELECT ''CHEQUES_IN'', ''\0634\064A\0643\0627\062A \062A\062D\062A \0627\0644\062A\062D\0635\064A\0644'' FROM dual UNION ALL SELECT ''CHEQUES_OUT'', ''\0634\064A\0643\0627\062A \062A\062D\062A \0627\0644\0635\0631\0641'' FROM dual UNION ALL SELECT ''RETAINED_EARNINGS'', ''\0627\0644\0623\0631\0628\0627\062D \0627\0644\0645\0631\062D\0651\0644\0629 (\0625\0642\0641\0627\0644 \0627\0644\0633\0646\0629)'' FROM dual)')))
+unistr('SELECT code || '' - '' || n d, code r FROM (SELECT ''SALES_EXT'' code, ''\0627\0644\0645\0628\064A\0639\0627\062A \0627\0644\0646\0642\062F\064A\0629'' n FROM dual UNION ALL SELECT ''SALES_CREDIT'', ''\0627\0644\0645\0628\064A\0639\0627\062A \0627\0644\0622\062C\0644\0629'' FROM dual UNION ALL SELECT ''SALES'', ''\0645\0628\064A\0639\0627\062A \0644\0644\0634\0631\0643\0627\062A'' FROM dual UNION ALL SELECT ''SALES_RETURN'', ''\0645\0631\062F\0648\062F\0627\062A \0627\0644\0645\0628\064A\0639\0627\062A'' FROM dual UNION ALL SELECT ''INTERCO_AP'', ''\0645\0633\062A\062D\0642 \0644\0644\0634\0631\0643\0629 \0627\0644\0623\0645'' FROM dual UNION ALL SELECT ''PURCHASES'', ''\0648\0627\0631\062F \0645\0646 \0627\0644\0623\0645 (\0645\062E\0632\0648\0646)'' FROM dual UNION ALL SELECT ''INVENTORY'', ''\0627\0644\0645\062E\0632\0648\0646'' FROM dual UNION ALL SELECT ''COGS'', ''\062A\0643\0644\0641\0629 \0627\0644\0645\0628\064A\0639\0627\062A'' FROM dual UNION ALL SELECT ''INVENTORY_ADJ'', ''\0641\0631\0648\0642\0627\062A \0627\0644\062C\0631\062F'' FROM dual UNION ALL SELECT ''POS_SALES'', ''\0645\0628\064A\0639\0627\062A \0646\0642\0627\0637 \0627\0644\0628\064A\0639'' FROM dual UNION ALL SELECT ''CASH_DIFF'', ''\0639\062C\0632 \0648\0632\064A\0627\062F\0629 \0627\0644\062E\0632\0627\0626\0646'' FROM dual UNION ALL SELECT ''SALARY_EXP'', ''\0645\0635\0631\0648\0641 \0627\0644\0631\0648\0627\062A\0628'' FROM dual UNION ALL SELECT ''INCENTIVE_EXP'', ''\0645\0635\0631\0648\0641 \0627\0644\062D\0648\0627\0641\0632'' FROM dual UNION ALL SELECT ''SALARY_DIFF'', ''\0641\0631\0648\0642\0627\062A \0627\0644\0631\0648\0627\062A\0628'' FROM dual UNION ALL SELECT ''SALARY_PAYABLE'', ''\0631\0648\0627\062A\0628 \0645\0633\062A\062D\0642\0629'' FROM dual UNION ALL SELECT ''DEDUCTIONS'', ''\062E\0635\0648\0645\0627\062A \0627\0644\0645\0648\0638\0641\064A\0646'' FROM dual UNION ALL SELECT ''CHEQUES_IN'', ''\0634\064A\0643\0627\062A \062A\062D\062A \0627\0644\062A\062D\0635\064A\0644'' FROM dual UNION ALL SELECT ''CHEQUES_OUT'', ''\0634\064A\0643\0627\062A \062A\062D\062A \0627\0644\0635\0631\0641'' FROM dual UNION ALL SELECT ''RETAINED_EARNINGS'', ''\0627\0644\0623\0631\0628\0627\062D \0627\0644\0645\0631\062D\0651\0644\0629 (\0625\0642\0641\0627\0644 \0627\0644\0633\0646\0629)'' FROM dual UNION ALL SELECT ''DAMAGE_LOSS'', ''\062E\0633\0627\0626\0631 \0627\0644\062A\0648\0627\0644\0641 (\0642\064A\062F \0627\0644\062A\0635\0641\064A\0631 \060C \0627\062E\062A\064A\0627\0631\064A)'' FROM dual)')))
 ,p_lov_display_extra=>'NO'
 ,p_field_template=>wwv_flow_imp.id(6769647329757532)
 ,p_item_template_options=>'#DEFAULT#'

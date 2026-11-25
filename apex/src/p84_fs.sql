@@ -7,7 +7,7 @@ DECLARE
   d2 DATE := TO_DATE(:P84_TO,   'DD/MM/YYYY');
   l_fy DATE;                                   -- بداية السنة المالية التي فيها "إلى تاريخ"
   l_cost_grp VARCHAR2(20); l_sales_grp VARCHAR2(20); l_ret VARCHAR2(20);
-  l_cogs NUMBER; l_rev_gross NUMBER; l_returns NUMBER; l_net_rev NUMBER; l_dmg NUMBER := 0;
+  l_cogs NUMBER; l_rev_gross NUMBER; l_returns NUMBER; l_net_rev NUMBER; l_dmg NUMBER := 0; l_dmg_code VARCHAR2(30);
   l_gross_op NUMBER; l_other_rev NUMBER; l_gross NUMBER; l_admin NUMBER; l_dep NUMBER; l_tax NUMBER;
   l_before_tax NUMBER; l_net NUMBER; l_tot_rev NUMBER; l_tot_exp NUMBER;
   l_assets NUMBER := 0; l_eq_liab NUMBER := 0; l_sec NUMBER; l_eq NUMBER;
@@ -106,12 +106,18 @@ BEGIN
   l_rev_gross := CASE WHEN l_sales_grp IS NOT NULL THEN -b(l_sales_grp, d1, d2) ELSE 0 END + l_returns;
   l_net_rev   := l_rev_gross - l_returns;
   l_cogs      := CASE WHEN l_cost_grp IS NOT NULL THEN b(l_cost_grp, d1, d2) ELSE 0 END;
+  -- تلفيات المخزون = رصيد حساب خسائر التوالف (إعداد DAMAGE_LOSS) ، ويُخرج من التكلفة أو المصروفات حتى لا يتكرر
+  SELECT MAX(a.account_code) INTO l_dmg_code FROM account_settings s JOIN accounts a ON a.account_id = s.account_id WHERE s.setting_code = 'DAMAGE_LOSS';
+  IF l_dmg_code IS NOT NULL THEN
+    l_dmg := b(l_dmg_code, d1, d2);
+    IF l_dmg_code LIKE l_cost_grp || '%' THEN l_cogs := l_cogs - l_dmg; END IF;
+  END IF;
   l_gross_op  := l_net_rev - l_cogs - l_dmg;
   l_other_rev := l_tot_rev - l_net_rev;
   l_gross     := l_gross_op + l_other_rev;
   l_dep       := bn('EXP', '%إهلاك%', '%اهلاك%', d1, d2);
   l_tax       := bn('EXP', '%ضريب%', '%زكا%', d1, d2);
-  l_admin     := l_tot_exp - l_cogs - l_dep - l_tax;
+  l_admin     := l_tot_exp - l_cogs - l_dmg - l_dep - l_tax;
   l_before_tax:= l_gross - l_admin - l_dep;
   l_net       := l_before_tax - l_tax;
 
@@ -123,7 +129,8 @@ BEGIN
   htp.p('<div class="fs-page">');
   head('تكلفة المبيعات للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD'),
        '<th>البيان</th><th>الإيضاح</th><th>المبلغ</th>');
-  FOR a IN (SELECT account_code, name_ar FROM accounts WHERE acc_level = 4 AND account_code LIKE l_cost_grp || '%' ORDER BY account_code) LOOP
+  FOR a IN (SELECT account_code, name_ar FROM accounts WHERE acc_level = 4 AND account_code LIKE l_cost_grp || '%'
+            AND account_code <> NVL(l_dmg_code, '-') ORDER BY account_code) LOOP
     r3(a.name_ar, 'CS:' || a.account_code, b(a.account_code, d1, d2));
   END LOOP;
   r3('صافي تكلفة المبيعات', NULL, l_cogs, 'grand');
