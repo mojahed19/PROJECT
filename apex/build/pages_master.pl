@@ -9,14 +9,38 @@ our %T;
 
 # ---------------------------------------------------------------- 0 الصفحة العامة
 page(id => 0, name => 'Global Page', alias => 'GLOBAL');
-# رأس يظهر عند طباعة أي صفحة أو تقرير: الشعار واسم الشركة وبياناتها
+# ترويسة موحدة تظهر عند طباعة أي صفحة أو تقرير (بنفس شكل ترويسة الفواتير): الشعار واسم المؤسسة وبياناتها والخط الثلاثي
+# لا تظهر في صفحات الطباعة التي لها ترويستها: القيد 32 ، الإذن 42 ، الشيك 48 ، الفواتير 53/54/57 ، الميزان 82 ، حركة المخزون 95
 region(name => 'print_head', title => 'print', type => 'static', no_header => 1, template => 'reg_blank', seq => 1,
-       cond => ":APP_PAGE_ID NOT IN (53, 54, 57, 82, 9999)", html => <<'HTML');
-<div class="print-only-head">
+       cond => ":APP_PAGE_ID NOT IN (32, 42, 48, 53, 54, 57, 82, 95, 9999)", html => <<'HTML');
+<style>
+@media print {
+  .print-only-head.ph { display: block !important; text-align: center; border-bottom: 0; padding-bottom: 0; margin-bottom: 10px; }
+  .print-only-head.ph img { width: 70px; height: 70px; }
+  .print-only-head.ph .nm { font-size: 18px; font-weight: 700; color: #2e2a83; }
+  .print-only-head.ph .inf { font-size: 12px; color: #444; margin-top: 2px; }
+  .print-only-head.ph .ln { height: 4px; margin: 6px auto 0; width: 60%; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    background: linear-gradient(to left, #1d1d1b 0 33.3%, #d9232d 33.3% 66.6%, #2e2a83 66.6% 100%); }
+}
+</style>
+<div class="print-only-head ph">
   <img src="#APP_FILES#logo.jpg" alt="">
-  <div><div class="nm">&G_COMPANY_NAME.</div><div class="inf">&G_COMPANY_INFO.</div></div>
+  <div class="nm">&G_COMPANY_NAME.</div><div class="inf">&G_COMPANY_INFO.</div><div class="ln"></div>
 </div>
 HTML
+# تذييل موحد في هامش كل ورقة مطبوعة: من طبع ومتى ، ورقم الصفحة من العدد (هوامش @page ، Chrome / Edge 131 فأحدث)
+# لا يظهر في الشيك 48 ولا الإيصال الحراري 54
+region(name => 'print_foot', title => 'print_foot', type => 'plsql', no_header => 1, template => 'reg_blank', seq => 2,
+       cond => ":APP_PAGE_ID NOT IN (48, 54, 9999)", plsql => <<'SQL');
+BEGIN
+  -- صفحات الطباعة 32 / 42 / 53 / 57 / 95 تكتب "طُبع بواسطة" في متنها: يُضاف لها رقم الصفحة فقط
+  htp.p('<style>@media print { @page {'
+     || CASE WHEN :APP_PAGE_ID NOT IN (32, 42, 53, 57, 95) THEN
+          ' @bottom-right { content: "' || REPLACE(REPLACE('طُبع بواسطة ' || :APP_USER || ' في ' || TO_CHAR(SYSDATE, 'DD/MM/YYYY HH24:MI'), '\', ''), '"', '')
+          || '"; font-size: 9px; color: #555; }' END
+     || ' @bottom-left { content: "صفحة " counter(page) " من " counter(pages); font-size: 9px; color: #555; } } }</style>');
+END;
+SQL
 end_page();
 
 # ---------------------------------------------------------------- مولّد القائمة + النموذج
