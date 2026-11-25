@@ -142,6 +142,7 @@ sub region {
     region_image               => $r{image} ? lit($r{image}) : undef,
     plug_grid_column_span      => $r{span},
     plug_new_grid_row          => $r{same_row} ? 'false' : undef,
+    region_css_classes         => $r{class} ? lit($r{class}) : undef,   # مثل no-print: لا تظهر في الطباعة
     location                   => $r{type} eq 'ir' || $r{type} eq 'form' ? undef : 'null',
     plug_display_condition_type=> $r{cond} ? "'EXPRESSION'" : undef,
     plug_display_when_condition=> $r{cond} ? lit($r{cond}) : undef,

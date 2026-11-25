@@ -848,13 +848,36 @@ process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n
 branch_self('P92_WAREHOUSE_ID', 'P92_FROM', 'P92_TO');
 end_page();
 
-page(id => 93, name => 'كارت العهدة', alias => 'ITEM-CARD', auth => 'IS_STORE');
-region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5);
+# كرت العهدة بين تاريخين: رصيد أول المدة ، الحركات بالرصيد التراكمي ، الرصيد الختامي ، مع طباعة
+page(id => 93, name => 'كارت العهدة', alias => 'ITEM-CARD', auth => 'IS_STORE',
+     css => "\@media print { .no-print { display: none !important; } .jl-table { font-size: 12px; } }\n");
+region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');
 item(name => 'P93_ITEM_ID', region => 'f', type => 'popup', label => 'الصنف', lov => "SELECT item_code || ' - ' || name_ar d, item_id r FROM items ORDER BY item_code", required => 1);
 item(name => 'P93_WAREHOUSE_ID', region => 'f', type => 'select', label => 'المخزن', lov => $LOV{warehouses}, null => 1, seq => 20, same_line => 1, required => 1);
+item(name => 'P93_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 30, required => 1);
+item(name => 'P93_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 40, same_line => 1, required => 1);
+item(name => 'P93_INFO', region => 'f', type => 'hidden', seq => 50);
 button(name => 'GO', region => 'f', label => 'عرض', hot => 1);
-region(name => 'ir', title => 'حركة الصنف', type => 'ir', sql => src('p93_ir.sql'), seq => 10, cond => ':P93_ITEM_ID IS NOT NULL AND :P93_WAREHOUSE_ID IS NOT NULL');
-branch_self('P93_ITEM_ID', 'P93_WAREHOUSE_ID');
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();', cond => ':P93_ITEM_ID IS NOT NULL AND :P93_WAREHOUSE_ID IS NOT NULL');
+table_region(name => 'card', title => 'كرت العهدة: &P93_INFO.', sql => src('p93_report.sql'), seq => 10,
+             cond => ':P93_ITEM_ID IS NOT NULL AND :P93_WAREHOUSE_ID IS NOT NULL');
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => <<'SQL');
+BEGIN
+  IF :P93_FROM IS NULL THEN :P93_FROM := '01/01/' || TO_CHAR(SYSDATE, 'YYYY'); END IF;
+  IF :P93_TO   IS NULL THEN :P93_TO   := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;
+  -- عنوان الكرت: الصنف (الوحدة الصغرى) - المخزن - الفترة
+  IF :P93_ITEM_ID IS NOT NULL AND :P93_WAREHOUSE_ID IS NOT NULL THEN
+    SELECT i.item_code || ' - ' || i.name_ar || ' (الوحدة: ' || u.name_ar || ')'
+           || ' | المخزن: ' || (SELECT w.name_ar FROM warehouses w WHERE w.warehouse_id = TO_NUMBER(:P93_WAREHOUSE_ID))
+           || ' | من ' || :P93_FROM || ' إلى ' || :P93_TO
+    INTO   :P93_INFO
+    FROM   items i JOIN units u ON u.unit_id = i.base_unit_id
+    WHERE  i.item_id = TO_NUMBER(:P93_ITEM_ID);
+  END IF;
+EXCEPTION WHEN NO_DATA_FOUND THEN :P93_INFO := NULL;
+END;
+SQL
+branch_self('P93_ITEM_ID', 'P93_WAREHOUSE_ID', 'P93_FROM', 'P93_TO');
 end_page();
 
 # =====================================================================
