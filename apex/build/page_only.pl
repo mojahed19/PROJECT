@@ -53,13 +53,27 @@ end;
 /
 HDR
 
+# الصلاحيات تُربط بالاسم لا بالرقم: ترقيم المولّد يتغير كلما تغيّرت قائمة التنقل (وهي قبل الصلاحيات) ،
+# فتشير الصفحة لصلاحية أخرى (حدث 2026-11-25: الصفحة 10 صارت IS_HR).
+# معرّفات الصلاحيات في التطبيق المثبّت 115:
+#   SELECT authorization_scheme_name, authorization_scheme_id FROM apex_application_authorization WHERE application_id = 115
+my %LIVE_AUTH = (IS_GM => 9204490307775087, IS_ACCOUNTANT => 9204490307775088, IS_HR => 9204490307775089, IS_STORE => 9204490307775090);
+my %auth_map;   # معرّف الصلاحية في f100.sql => المعرّف الذي يصبح بعد الإزاحة معرّفها الفعلي
+while ($all =~ /create_security_scheme\(\s*p_id=>wwv_flow_imp\.id\((\d+)\)\s*,p_name=>'([^']+)'/g) {
+  die "unknown authorization scheme $2: add its live id to %LIVE_AUTH\n" unless $LIVE_AUTH{$2};
+  $auth_map{$1} = $LIVE_AUTH{$2} - $offset;
+}
+die "no authorization schemes found in f100.sql\n" unless %auth_map;
+
 for my $p (@pages) {
   my $tag = sprintf('page_%05d', $p);
   my ($sec) = $all =~ m{(^prompt --application/pages/$tag\n.*?)(?=^prompt --application/)}ms
     or die "page $p not found";
   # معرّفات مكوّنات الصفحة = كل p_id المعرّف داخل القسم
   my %local = map { $_ => 1 } ($sec =~ /p_id=>wwv_flow_imp\.id\((\d+)\)/g);
-  $sec =~ s/wwv_flow_imp\.id\((\d+)\)/'wwv_flow_imp.id(' . ($local{$1} ? $1 + $LOCAL_SHIFT : $1) . ')'/ge;
+  $sec =~ s/(p_required_role|p_security_scheme|p_authorization_scheme)=>wwv_flow_imp\.id\((\d+)\)/
+            "$1=>wwv_flow_imp.id(" . ($auth_map{$2} or die "page $p: unknown authorization id $2\n") . ')'/ge;
+  $sec =~ s/(?<!_required_role=>)(?<!_security_scheme=>)(?<!_authorization_scheme=>)wwv_flow_imp\.id\((\d+)\)/'wwv_flow_imp.id(' . ($local{$1} ? $1 + $LOCAL_SHIFT : $1) . ')'/ge;
   $out .= sprintf("prompt --application/pages/delete_%05d\nbegin\nwwv_flow_imp_page.remove_page (p_flow_id=>wwv_flow.g_flow_id, p_page_id=>%d);\nend;\n/\n", $p, $p);
   $out .= $sec;
 }

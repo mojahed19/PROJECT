@@ -924,6 +924,69 @@ branch_self('P81_ACCOUNT_ID', 'P81_FROM', 'P81_TO', 'P81_CURRENCY');
 end_page();
 
 # =====================================================================
+# 86 أعمار الديون (العملاء 1106 / الموردون 2101) في تاريخ معيّن ، مع الطباعة
+# =====================================================================
+page(id => 86, name => 'أعمار الديون', alias => 'AGING', auth => 'IS_ACCOUNTANT', css => <<'CSS');
+.nt-head { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 4px 0 14px; direction: rtl; }
+.nt-sub { font-size: 12px; font-weight: 400; text-decoration: none; color: #555; }
+.nt-block { max-width: 1100px; margin: 0 auto 18px; direction: rtl; }
+.nt-empty { text-align: center; color: #777; }
+.fs { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fs th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px; text-align: center; }
+.fs td { padding: 3px 6px; border-bottom: 1px solid #eee; }
+.fs td.n { text-align: left; direction: ltr; white-space: nowrap; }
+.fs td.n.b { font-weight: 700; }
+.fs td.n.old { color: #b00; font-weight: 700; }
+.fs td.nt { text-align: center; color: #555; white-space: nowrap; }
+.fs td.lbl a { color: inherit; text-decoration: none; border-bottom: 1px dotted #888; }
+.fs tr.grand td { font-weight: 700; border-top: 1px solid #000; border-bottom: 3px double #000; }
+.fs tr.pct td { color: #555; font-size: 12px; }
+@page { margin: 10mm; }
+@media print {
+  .no-print { display: none !important; }
+  .nt-block { max-width: none; }
+  .fs { font-size: 12px; }
+  .fs td.lbl a { border: none; }
+}
+CSS
+region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');
+item(name => 'P86_GROUP_ID', region => 'f', type => 'select', label => 'المجموعة', seq => 10, required => 1,
+     lov => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE account_code IN ('1106','2101') ORDER BY account_code");
+item(name => 'P86_AS_OF', region => 'f', type => 'date', label => 'في تاريخ', seq => 20, same_line => 1, required => 1);
+item(name => 'P86_DAYS', region => 'f', type => 'select', label => 'طول الفترة', seq => 30, same_line => 1,
+     lov => "SELECT column_value || ' يوم' d, column_value r FROM TABLE(sys.odcinumberlist(15, 30, 45, 60, 90))");
+button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
+region(name => 'aging', title => 'أعمار الديون', type => 'plsql', no_header => 1, seq => 10, plsql => src('p86_aging.sql'));
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P86_GROUP_ID IS NULL THEN SELECT MIN(account_id) INTO :P86_GROUP_ID FROM accounts WHERE account_code = '1106'; END IF;",
+  "IF :P86_AS_OF IS NULL THEN :P86_AS_OF := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;",
+  "IF :P86_DAYS IS NULL THEN :P86_DAYS := '30'; END IF;"));
+branch_self('P86_GROUP_ID', 'P86_AS_OF', 'P86_DAYS');
+end_page();
+
+# =====================================================================
+# 87 سجل التدقيق (للمدير فقط): من أضاف / عدّل / حذف ماذا ومتى (db/20_audit_log.sql)
+# =====================================================================
+page(id => 87, name => 'سجل التدقيق', alias => 'AUDIT', auth => 'IS_GM');
+region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5);
+item(name => 'P87_FROM', region => 'f', type => 'date', label => 'من', seq => 10);
+item(name => 'P87_TO', region => 'f', type => 'date', label => 'إلى', seq => 20, same_line => 1);
+item(name => 'P87_TABLE', region => 'f', type => 'select', label => 'الشاشة / الجدول', null => 'الكل', submit => 1, seq => 30, same_line => 1,
+     lov => "SELECT DISTINCT table_name d, table_name r FROM audit_log ORDER BY 1");
+item(name => 'P87_USER', region => 'f', type => 'select', label => 'المستخدم', null => 'الكل', submit => 1, seq => 40,
+     lov => "SELECT DISTINCT changed_by d, changed_by r FROM audit_log WHERE changed_by IS NOT NULL ORDER BY 1");
+item(name => 'P87_ACTION', region => 'f', type => 'select', label => 'العملية', null => 'الكل', submit => 1, seq => 50, same_line => 1,
+     lov => "SELECT 'إضافة' d, 'I' r FROM dual UNION ALL SELECT 'تعديل', 'U' FROM dual UNION ALL SELECT 'حذف', 'D' FROM dual");
+button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
+region(name => 'ir', title => 'سجل التدقيق', type => 'ir', sql => src('p87_ir.sql'), seq => 10, hide => ['AUDIT_ID']);
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
+  "IF :P87_FROM IS NULL THEN :P87_FROM := TO_CHAR(SYSDATE - 7, 'DD/MM/YYYY'); END IF;",
+  "IF :P87_TO IS NULL THEN :P87_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;"));
+branch_self('P87_FROM', 'P87_TO', 'P87_TABLE', 'P87_USER', 'P87_ACTION');
+end_page();
+
+# =====================================================================
 # 90 حركات المخزون + 91 + 92 + 93
 # =====================================================================
 page(id => 90, name => 'حركة مخزون', alias => 'STOCK', title => '&P90_TITLE.', auth => 'IS_STORE',
