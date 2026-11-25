@@ -724,8 +724,9 @@ out("wwv_flow_imp_page.create_page_branch(\n" . args(id => wid(nid()), branch_na
 branch_self('P80_FROM', 'P80_TO', 'P80_LEVEL', 'P80_EXCLUDE_INTERCO', 'P80_SEPARATE');
 end_page();
 
-page(id => 82, name => 'طباعة ميزان المراجعة', alias => 'PRINT-TRIAL', template => 'page_minimal', css => $print_css . "\@page { size: A4; margin: 12mm; }
-.cons-table, .jl-table { font-size: 12px; }
+# بدون size في @page حتى يعمل اختيار الاتجاه (Portrait / Landscape) والمقاس من نافذة الطباعة
+page(id => 82, name => 'طباعة ميزان المراجعة', alias => 'PRINT-TRIAL', template => 'page_minimal', css => $print_css . "\@page { margin: 10mm; }
+.cons-table, .jl-table { font-size: 12px; width: 100%; }
 ",
      onload => 'setTimeout(function () { window.print(); }, 600);');
 region(name => 'brand', title => 'brand', type => 'static', no_header => 1, seq => 5, html => <<'HTML');
