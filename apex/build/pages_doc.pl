@@ -1291,11 +1291,30 @@ item(name => 'P123_BITEM_ID', region => 'f', type => 'select', label => 'الإ�
      lov => "SELECT note_no || ' - ' || name_ar d, bitem_id r FROM budget_items ORDER BY sort_order, note_no");
 item(name => 'P123_ONLY_APPROVED', region => 'f', type => 'select', label => 'الخطط', submit => 1, seq => 30, same_line => 1,
      lov => "SELECT 'كل الخطط' d, 'N' r FROM dual UNION ALL SELECT 'المعتمدة فقط', 'Y' FROM dual");
+# كل ربع على حدة: اختيار الربع يعرض مبلغه فقط (الخطة والفعلي والانحراف)
+item(name => 'P123_QUARTER', region => 'f', type => 'select', label => 'الربع', null => 'كل الأرباع', submit => 1, seq => 40, same_line => 1,
+     lov => "SELECT 'الربع الأول' d, '1' r FROM dual UNION ALL SELECT 'الربع الثاني', '2' FROM dual UNION ALL SELECT 'الربع الثالث', '3' FROM dual UNION ALL SELECT 'الربع الرابع', '4' FROM dual");
+item(name => 'P123_Q_NAME', region => 'f', type => 'hidden', seq => 50);
 button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 10, js => 'window.print();');
-table_region(name => 'rep', title => 'الخطة بالأرباع لكل إيضاح: الإدارات ثم الإجمالي والفعلي والانحراف', sql => src('p123_report.sql'), seq => 10);
+table_region(name => 'rep', title => 'الخطة بالأرباع لكل إيضاح: الإدارات ثم الإجمالي والفعلي والانحراف', sql => src('p123_report.sql'), seq => 10,
+             cond => ':P123_QUARTER IS NULL');
+{
+  # نفس التقرير لربع واحد: عمود المبلغ للربع المختار فقط
+  my $base = src('p123_report.sql');
+  $base =~ s/\s*ORDER BY r\.sort_key\s*\z//s or die 'p123 order by';
+  my $qsql = "SELECT sort_key, \"رقم الإيضاح\", \"البند\", \"الإدارة / البيان\",\n"
+           . "       CASE :P123_QUARTER WHEN '1' THEN \"الربع الأول\" WHEN '2' THEN \"الربع الثاني\"\n"
+           . "                          WHEN '3' THEN \"الربع الثالث\" ELSE \"الربع الرابع\" END AS \"المبلغ\"\n"
+           . "FROM (\n$base\n)\nORDER BY sort_key";
+  table_region(name => 'rep_q', title => 'الخطة لكل إيضاح - &P123_Q_NAME.: الإدارات ثم الإجمالي والفعلي والانحراف', sql => $qsql, seq => 11,
+               cond => ':P123_QUARTER IS NOT NULL');
+}
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
   "IF :P123_FY_YEAR IS NULL THEN :P123_FY_YEAR := TO_CHAR(SYSDATE, 'YYYY'); END IF;",
-  "IF :P123_ONLY_APPROVED IS NULL THEN :P123_ONLY_APPROVED := 'N'; END IF;"));
+  "IF :P123_ONLY_APPROVED IS NULL THEN :P123_ONLY_APPROVED := 'N'; END IF;",
+  ":P123_Q_NAME := CASE :P123_QUARTER WHEN '1' THEN 'الربع الأول' WHEN '2' THEN 'الربع الثاني' WHEN '3' THEN 'الربع الثالث' WHEN '4' THEN 'الربع الرابع' END;"));
+# القوائم تبقى على اختيارها بعد الإرسال
+branch_self('P123_FY_YEAR', 'P123_BITEM_ID', 'P123_ONLY_APPROVED', 'P123_QUARTER');
 end_page();
 
 # =====================================================================
