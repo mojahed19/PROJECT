@@ -50,6 +50,8 @@ PROMPT ===== 20_audit_log.sql
 @db/20_audit_log.sql
 PROMPT ===== 21_year_closing.sql
 @db/21_year_closing.sql
+PROMPT ===== 22_no_delete_posted.sql
+@db/22_no_delete_posted.sql
 
 PROMPT ===== Invalid objects check
 SELECT object_type, object_name FROM user_objects WHERE status = 'INVALID';
