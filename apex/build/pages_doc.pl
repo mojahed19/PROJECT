@@ -741,7 +741,7 @@ end_page();
 # =====================================================================
 page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS', auth => 'IS_ACCOUNTANT', css => <<'CSS');
 .fs-page { max-width: 820px; margin: 0 auto 28px; direction: rtl; }
-.fs-dept { text-align: center; font-size: 18px; font-weight: 700; text-decoration: underline; margin: 6px 0; }
+.fs-gap { height: 26px; }
 .fs-title { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 4px 0 10px; }
 .fs { width: 100%; border-collapse: collapse; font-size: 14px; }
 .fs th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px; text-align: center; }
@@ -756,10 +756,21 @@ page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS
 .fs tr.grand td { font-weight: 700; font-size: 15px; }
 .fs tr.grand td.n:last-child { border-top: 1px solid #000; border-bottom: 3px double #000; }
 .fs-warn { color: #b00; font-weight: 700; margin-top: 6px; }
+/* الطباعة: الورقة 1 تكلفة المبيعات وقائمة الدخل ، الورقة 2 المركز المالي مضغوطاً في ورقة واحدة */
+@page { size: A4; margin: 10mm; }
 @media print {
   .no-print { display: none !important; }
-  .fs-page { page-break-after: always; max-width: none; }
-  .fs-page:last-child { page-break-after: auto; }
+  .fs-page { max-width: none; margin: 0; }
+  .fs-page:not(.fs-bs) { page-break-after: always; break-after: page; }
+  .fs-gap { height: 14px; }
+  .fs-bs { page-break-inside: avoid; break-inside: avoid; }
+  .fs-bs .fs-title { font-size: 14px; margin: 0 0 4px; }
+  .fs-bs .fs { font-size: 11px; line-height: 1.15; }
+  .fs-bs .fs th { padding: 2px 4px; }
+  .fs-bs .fs td { padding: 1px 4px; }
+  .fs-bs .fs tr.main td.lbl { font-size: 12px; padding-top: 3px; }
+  .fs-bs .fs tr.grand td { font-size: 12px; }
+  .fs-bs .fs tr:not(.sec):not(.main):not(.tot):not(.grand) td.lbl { padding-inline-start: 14px; }
 }
 CSS
 region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');

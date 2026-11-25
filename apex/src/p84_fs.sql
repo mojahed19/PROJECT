@@ -1,8 +1,7 @@
 DECLARE
   -- القوائم المالية من شجرة الحسابات مباشرة (القيود المرحّلة ، والمعكوس مع عكسه يتصفّران):
-  --   1) قائمة المركز المالي كما في "إلى تاريخ": المجموعات = حسابات المستوى 2 ، البنود = المستوى 3
-  --   2) تكلفة المبيعات للفترة: حسابات مجموعة التكلفة (التي يتبعها حساب COGS) من المستوى 4
-  --   3) قائمة الدخل للفترة
+  --   الورقة 1: تكلفة المبيعات للفترة (حسابات مجموعة التكلفة التي يتبعها حساب COGS ، المستوى 4) ثم قائمة الدخل للفترة
+  --   الورقة 2: قائمة المركز المالي كما في "إلى تاريخ" (المجموعات = المستوى 2 ، البنود = المستوى 3) في ورقة واحدة
   -- الإيضاح = رقم الحساب في الشجرة
   d1 DATE := TO_DATE(:P84_FROM, 'DD/MM/YYYY');
   d2 DATE := TO_DATE(:P84_TO,   'DD/MM/YYYY');
@@ -61,7 +60,7 @@ DECLARE
   END;
   PROCEDURE head (p_title VARCHAR2, p_cols VARCHAR2) IS
   BEGIN
-    htp.p('<div class="fs-dept">الإدارة المالية</div><div class="fs-title">' || e(p_title) || '</div>');
+    htp.p('<div class="fs-title">' || e(p_title) || '</div>');
     htp.p('<table class="fs"><thead><tr>' || p_cols || '</tr></thead><tbody>');
   END;
 
@@ -113,8 +112,37 @@ BEGIN
   l_period_pl := -(tot('REV', l_fy, d2) + tot('EXP', l_fy, d2));
   l_ret_earn  := -(tot('REV', NULL, l_fy - 1) + tot('EXP', NULL, l_fy - 1));
 
-  ------------------------------------------------------------------ 1) قائمة المركز المالي
+  ------------------------------------------------------------------ 2) تكلفة المبيعات
   htp.p('<div class="fs-page">');
+  head('تكلفة المبيعات للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD'),
+       '<th>البيان</th><th>الإيضاح</th><th>المبلغ</th>');
+  FOR a IN (SELECT account_code, name_ar FROM accounts WHERE acc_level = 4 AND account_code LIKE l_cost_grp || '%' ORDER BY account_code) LOOP
+    r3(a.name_ar, a.account_code, b(a.account_code, d1, d2));
+  END LOOP;
+  r3('صافي تكلفة المبيعات', NULL, l_cogs, 'grand');
+  htp.p('</tbody></table>');
+
+  ------------------------------------------------------------------ 3) قائمة الدخل
+  htp.p('<div class="fs-gap"></div>');
+  head('قائمة الدخل للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD'),
+       '<th>البيان</th><th>الإيضاح</th><th>المبلغ</th>');
+  r3('إيراد النشاط', l_sales_grp, l_rev_gross);
+  r3('(-) مردودات إيراد النشاط', l_ret, l_returns);
+  r3('صافي إيراد النشاط', NULL, l_net_rev, 'tot');
+  r3('(-) تكلفة المبيعات', l_cost_grp, l_cogs);
+  r3('(-) تلفيات المخزون', NULL, l_dmg);
+  r3('إجمالي الربح أو الخسارة التشغيلي', NULL, l_gross_op, 'tot');
+  r3('(+) الإيرادات الأخرى', NULL, l_other_rev);
+  r3('مجمل الربح أو الخسارة', NULL, l_gross, 'tot');
+  r3('(-) المصروفات العمومية والإدارية', NULL, l_admin);
+  r3('(-) الإهلاك', NULL, l_dep);
+  r3('صافي الربح القابل للتوزيع', NULL, l_before_tax, 'tot');
+  r3('(-) الضرائب والزكاة', NULL, l_tax);
+  r3('صافي الربح أو الخسارة', NULL, l_net, 'grand');
+  htp.p('</tbody></table></div>');
+
+  ------------------------------------------------------------------ 1) قائمة المركز المالي
+  htp.p('<div class="fs-page fs-bs">');
   head('قائمة المركز المالي كما في ' || TO_CHAR(d2, 'YYYY/MM/DD'),
        '<th>البيان</th><th>الإيضاح</th><th>جزئي</th><th>كلي</th>');
   r4('الموجودات', NULL, NULL, NULL, 'main');
@@ -133,7 +161,6 @@ BEGIN
             WHERE a.acc_level = 2 AND p.acc_type = 'EQUITY' ORDER BY a.account_code) LOOP
     l_eq := l_eq + grp(g.account_code, g.name_ar, -1, g.rn = 1);
   END LOOP;
-  IF l_eq = 0 AND NOT (l_ret_earn <> 0 OR l_period_pl <> 0) THEN NULL; END IF;
   l_eq_liab := l_eq;
   FOR g IN (SELECT a.account_code, a.name_ar FROM accounts a JOIN accounts p ON p.account_id = a.parent_id
             WHERE a.acc_level = 2 AND p.acc_type = 'LIAB'
@@ -147,32 +174,4 @@ BEGIN
   END IF;
   htp.p('</div>');
 
-  ------------------------------------------------------------------ 2) تكلفة المبيعات
-  htp.p('<div class="fs-page">');
-  head('تكلفة المبيعات للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD'),
-       '<th>البيان</th><th>الإيضاح</th><th>المبلغ</th>');
-  FOR a IN (SELECT account_code, name_ar FROM accounts WHERE acc_level = 4 AND account_code LIKE l_cost_grp || '%' ORDER BY account_code) LOOP
-    r3(a.name_ar, a.account_code, b(a.account_code, d1, d2));
-  END LOOP;
-  r3('صافي تكلفة المبيعات', NULL, l_cogs, 'grand');
-  htp.p('</tbody></table></div>');
-
-  ------------------------------------------------------------------ 3) قائمة الدخل
-  htp.p('<div class="fs-page">');
-  head('قائمة الدخل للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD'),
-       '<th>البيان</th><th>الإيضاح</th><th>المبلغ</th>');
-  r3('إيراد النشاط', l_sales_grp, l_rev_gross);
-  r3('(-) مردودات إيراد النشاط', l_ret, l_returns);
-  r3('صافي إيراد النشاط', NULL, l_net_rev, 'tot');
-  r3('(-) تكلفة المبيعات', l_cost_grp, l_cogs);
-  r3('(-) تلفيات المخزون', NULL, l_dmg);
-  r3('إجمالي الربح أو الخسارة التشغيلي', NULL, l_gross_op, 'tot');
-  r3('(+) الإيرادات الأخرى', NULL, l_other_rev);
-  r3('مجمل الربح أو الخسارة', NULL, l_gross, 'tot');
-  r3('(-) المصروفات العمومية والإدارية', NULL, l_admin);
-  r3('(-) الإهلاك', NULL, l_dep);
-  r3('صافي الربح القابل للتوزيع', NULL, l_before_tax, 'tot');
-  r3('(-) الضرائب والزكاة', NULL, l_tax);
-  r3('صافي الربح أو الخسارة', NULL, l_net, 'grand');
-  htp.p('</tbody></table></div>');
 END;
