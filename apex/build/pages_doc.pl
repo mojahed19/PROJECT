@@ -1327,6 +1327,29 @@ branch_self('P52_FROM', 'P52_TO', 'P52_USER');
 end_page();
 
 # =====================================================================
+# 89 تحليل المبيعات والأرباح: حسب الصنف / العميل / الصنف والعميل ، مع التكلفة الفعلية من حركة المخزون والربح والهامش
+# =====================================================================
+page(id => 89, name => 'تحليل المبيعات والأرباح', alias => 'SALES-PROFIT', auth => 'IS_ACCOUNTANT');
+region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');
+item(name => 'P89_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 10, required => 1);
+item(name => 'P89_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 20, same_line => 1, required => 1);
+item(name => 'P89_GROUP', region => 'f', type => 'select', label => 'التجميع', seq => 30, same_line => 1, submit => 1,
+     lov => "SELECT 'حسب الصنف' d, 'ITEM' r FROM dual UNION ALL SELECT 'حسب العميل', 'CUSTOMER' FROM dual UNION ALL SELECT 'حسب الصنف والعميل', 'ITEM_CUSTOMER' FROM dual");
+item(name => 'P89_WAREHOUSE_ID', region => 'f', type => 'select', label => 'المخزن', lov => $LOV{warehouses}, null => 'كل المخازن', submit => 1, seq => 40);
+item(name => 'P89_PAY', region => 'f', type => 'select', label => 'طريقة الدفع', null => 'الكل', submit => 1, seq => 50, same_line => 1,
+     lov => "SELECT 'نقدي' d, 'CASH' r FROM dual UNION ALL SELECT 'آجل', 'CREDIT' FROM dual");
+button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
+region(name => 'ir', title => 'المبيعات والأرباح (القيم بالعملة الأساسية ، الكميات بالوحدة الصغرى ، التكلفة من حركة المخزون)',
+       type => 'ir', sql => src('p89_ir.sql'), seq => 10);
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P89_FROM IS NULL THEN :P89_FROM := '01/01/' || TO_CHAR(SYSDATE, 'YYYY'); END IF;",
+  "IF :P89_TO IS NULL THEN :P89_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;",
+  "IF :P89_GROUP IS NULL THEN :P89_GROUP := 'ITEM'; END IF;"));
+branch_self('P89_FROM', 'P89_TO', 'P89_GROUP', 'P89_WAREHOUSE_ID', 'P89_PAY');
+end_page();
+
+# =====================================================================
 # 94 أصناف قاربت انتهاء صلاحيتها
 # =====================================================================
 page(id => 94, name => 'أصناف قاربت انتهاء الصلاحية', alias => 'EXPIRY', auth => 'IS_STORE');
