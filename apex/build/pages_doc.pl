@@ -736,6 +736,44 @@ HTML
 table_region(name => 'tb', title => 'tb', no_header => 1, sql => src('p80_ir.sql'), seq => 10);
 end_page();
 
+# =====================================================================
+# 84 القوائم المالية: المركز المالي ، تكلفة المبيعات ، قائمة الدخل (من شجرة الحسابات مباشرة)
+# =====================================================================
+page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS', auth => 'IS_ACCOUNTANT', css => <<'CSS');
+.fs-page { max-width: 820px; margin: 0 auto 28px; direction: rtl; }
+.fs-dept { text-align: center; font-size: 18px; font-weight: 700; text-decoration: underline; margin: 6px 0; }
+.fs-title { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 4px 0 10px; }
+.fs { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fs th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px; text-align: center; }
+.fs td { padding: 4px 6px; }
+.fs td.n { text-align: left; direction: ltr; white-space: nowrap; width: 22%; }
+.fs td.nt { text-align: center; color: #555; width: 10%; }
+.fs tr.main td.lbl { font-size: 16px; font-weight: 700; text-decoration: underline; padding-top: 10px; }
+.fs tr.sec td.lbl { font-weight: 700; text-decoration: underline; }
+.fs tr:not(.sec):not(.main):not(.tot):not(.grand) td.lbl { padding-inline-start: 22px; }
+.fs tr.tot td { font-weight: 700; }
+.fs tr.tot td.n:last-child { border-top: 1px solid #000; }
+.fs tr.grand td { font-weight: 700; font-size: 15px; }
+.fs tr.grand td.n:last-child { border-top: 1px solid #000; border-bottom: 3px double #000; }
+.fs-warn { color: #b00; font-weight: 700; margin-top: 6px; }
+@media print {
+  .no-print { display: none !important; }
+  .fs-page { page-break-after: always; max-width: none; }
+  .fs-page:last-child { page-break-after: auto; }
+}
+CSS
+region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');
+item(name => 'P84_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 10, required => 1);
+item(name => 'P84_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 20, same_line => 1, required => 1);
+button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
+region(name => 'fs', title => 'القوائم المالية', type => 'plsql', no_header => 1, seq => 10, plsql => src('p84_fs.sql'));
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P84_FROM IS NULL THEN :P84_FROM := '01/01/' || TO_CHAR(SYSDATE, 'YYYY'); END IF;",
+  "IF :P84_TO IS NULL THEN :P84_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;"));
+branch_self('P84_FROM', 'P84_TO');
+end_page();
+
 page(id => 81, name => 'كشف حساب', alias => 'STATEMENT', auth => 'IS_ACCOUNTANT');
 region(name => 'f', title => 'الخيارات', type => 'static', seq => 5,
        html => '<div class="doc-meta" style="margin-bottom:8px"><b>&P81_ACC_INFO.</b></div>');

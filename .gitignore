@@ -1,2 +1,3 @@
 install/logs/
 apex/build/out/
+apex/app/page_*_only.sql
