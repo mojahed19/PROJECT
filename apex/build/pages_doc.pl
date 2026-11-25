@@ -739,7 +739,15 @@ end_page();
 # =====================================================================
 # 84 القوائم المالية: المركز المالي ، تكلفة المبيعات ، قائمة الدخل (من شجرة الحسابات مباشرة)
 # =====================================================================
-page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS', auth => 'IS_ACCOUNTANT', css => <<'CSS');
+# خانات الإيضاح: تُحفظ تلقائياً عند الخروج من الخانة (أو Enter)
+my $fs_notes_js = <<'JS';
+apex.jQuery(document).on('change', '.fs-note-in', function () {
+  var el = this;
+  apex.server.process('SAVE_NOTE', {x01: el.getAttribute('data-key'), x02: el.value}, {dataType: 'json'})
+    .done(function (d) { el.classList.toggle('saved', !!d.ok); if (!d.ok) apex.message.alert(d.error || 'تعذّر الحفظ'); });
+});
+JS
+page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS', auth => 'IS_ACCOUNTANT', onload => $fs_notes_js, css => <<'CSS');
 .fs-page { max-width: 820px; margin: 0 auto 28px; direction: rtl; }
 .fs-gap { height: 26px; }
 .fs-title { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 4px 0 10px; }
@@ -756,6 +764,9 @@ page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS
 .fs tr.grand td { font-weight: 700; font-size: 15px; }
 .fs tr.grand td.n:last-child { border-top: 1px solid #000; border-bottom: 3px double #000; }
 .fs-warn { color: #b00; font-weight: 700; margin-top: 6px; }
+.fs-note-in { width: 100%; max-width: 70px; text-align: center; font: inherit; border: 1px dashed #bbb; border-radius: 3px; padding: 1px 2px; background: #fffef5; }
+.fs-note-in:focus { border: 1px solid #146b2d; outline: none; background: #fff; }
+.fs-note-in.saved { border-color: #9c9; }
 /* الطباعة: الورقة 1 تكلفة المبيعات وقائمة الدخل ، الورقة 2 المركز المالي مضغوطاً في ورقة واحدة */
 @page { size: A4; margin: 10mm; }
 @media print {
@@ -771,6 +782,7 @@ page(id => 84, name => 'القوائم المالية', alias => 'FIN-STATEMENTS
   .fs-bs .fs tr.main td.lbl { font-size: 12px; padding-top: 3px; }
   .fs-bs .fs tr.grand td { font-size: 12px; }
   .fs-bs .fs tr:not(.sec):not(.main):not(.tot):not(.grand) td.lbl { padding-inline-start: 14px; }
+  .fs-note-in { border: none !important; background: transparent !important; padding: 0; color: #000; }
 }
 CSS
 region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');
@@ -782,6 +794,26 @@ region(name => 'fs', title => 'القوائم المالية', type => 'plsql', 
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
   "IF :P84_FROM IS NULL THEN :P84_FROM := '01/01/' || TO_CHAR(SYSDATE, 'YYYY'); END IF;",
   "IF :P84_TO IS NULL THEN :P84_TO := TO_CHAR(SYSDATE, 'DD/MM/YYYY'); END IF;"));
+ajax('SAVE_NOTE', <<'SQL');
+BEGIN
+  -- حفظ رقم الإيضاح لسطر في القوائم المالية (فارغ = حذف)
+  IF apex_application.g_x01 IS NULL OR LENGTH(apex_application.g_x01) > 40 THEN
+    apex_json.open_object; apex_json.write('ok', FALSE); apex_json.write('error', 'سطر غير صحيح'); apex_json.close_object; RETURN;
+  END IF;
+  IF TRIM(apex_application.g_x02) IS NULL THEN
+    DELETE FROM fs_notes WHERE line_key = apex_application.g_x01;
+  ELSE
+    MERGE INTO fs_notes n
+    USING (SELECT apex_application.g_x01 k, SUBSTR(TRIM(apex_application.g_x02), 1, 50) t FROM dual) s
+    ON (n.line_key = s.k)
+    WHEN MATCHED THEN UPDATE SET n.note_text = s.t, n.updated_by = :APP_USER, n.updated_on = SYSDATE
+    WHEN NOT MATCHED THEN INSERT (line_key, note_text, updated_by, updated_on) VALUES (s.k, s.t, :APP_USER, SYSDATE);
+  END IF;
+  apex_json.open_object; apex_json.write('ok', TRUE); apex_json.close_object;
+EXCEPTION WHEN OTHERS THEN
+  apex_json.open_object; apex_json.write('ok', FALSE); apex_json.write('error', SQLERRM); apex_json.close_object;
+END;
+SQL
 branch_self('P84_FROM', 'P84_TO');
 end_page();
 

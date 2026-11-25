@@ -46,16 +46,23 @@ DECLARE
   BEGIN RETURN CASE WHEN n IS NULL THEN NULL WHEN ROUND(n, 2) = 0 THEN '..' ELSE TO_CHAR(n, 'FM999G999G999G999G990D00') END; END;
   FUNCTION e (s VARCHAR2) RETURN VARCHAR2 IS BEGIN RETURN apex_escape.html(s); END;
 
-  -- سطر في قائمة المركز المالي: البيان | الإيضاح | جزئي | كلي
-  PROCEDURE r4 (p_lbl VARCHAR2, p_note VARCHAR2, p_part NUMBER, p_total NUMBER, p_cls VARCHAR2 DEFAULT NULL) IS
+  -- خانة الإيضاح: يكتبها المستخدم لكل سطر وتُحفظ في fs_notes (p_key = مفتاح السطر ، NULL = بلا إيضاح)
+  FUNCTION nb (p_key VARCHAR2) RETURN VARCHAR2 IS l_note fs_notes.note_text%TYPE;
   BEGIN
-    htp.p('<tr class="' || p_cls || '"><td class="lbl">' || e(p_lbl) || '</td><td class="nt">' || e(p_note) || '</td><td class="n">'
+    IF p_key IS NULL THEN RETURN NULL; END IF;
+    SELECT MAX(note_text) INTO l_note FROM fs_notes WHERE line_key = p_key;
+    RETURN '<input type="text" class="fs-note-in" maxlength="50" data-key="' || e(p_key) || '" value="' || e(l_note) || '">';
+  END;
+  -- سطر في قائمة المركز المالي: البيان | الإيضاح | جزئي | كلي
+  PROCEDURE r4 (p_lbl VARCHAR2, p_key VARCHAR2, p_part NUMBER, p_total NUMBER, p_cls VARCHAR2 DEFAULT NULL) IS
+  BEGIN
+    htp.p('<tr class="' || p_cls || '"><td class="lbl">' || e(p_lbl) || '</td><td class="nt">' || nb(p_key) || '</td><td class="n">'
           || f(p_part) || '</td><td class="n">' || f(p_total) || '</td></tr>');
   END;
   -- سطر في قائمة الدخل وتكلفة المبيعات: البيان | الإيضاح | المبلغ
-  PROCEDURE r3 (p_lbl VARCHAR2, p_note VARCHAR2, p_amt NUMBER, p_cls VARCHAR2 DEFAULT NULL) IS
+  PROCEDURE r3 (p_lbl VARCHAR2, p_key VARCHAR2, p_amt NUMBER, p_cls VARCHAR2 DEFAULT NULL) IS
   BEGIN
-    htp.p('<tr class="' || p_cls || '"><td class="lbl">' || e(p_lbl) || '</td><td class="nt">' || e(p_note) || '</td><td class="n">'
+    htp.p('<tr class="' || p_cls || '"><td class="lbl">' || e(p_lbl) || '</td><td class="nt">' || nb(p_key) || '</td><td class="n">'
           || f(p_amt) || '</td></tr>');
   END;
   PROCEDURE head (p_title VARCHAR2, p_cols VARCHAR2) IS
@@ -73,11 +80,11 @@ DECLARE
               ORDER BY account_code) LOOP
       v := p_sign * b(a.account_code, NULL, d2);
       l := l + v;
-      r4(a.name_ar, a.account_code, v, NULL);
+      r4(a.name_ar, 'BS:' || a.account_code, v, NULL);
     END LOOP;
     IF p_extra THEN   -- حقوق الملكية: الأرباح المرحّلة وأرباح الفترة (من حسابات الإيرادات والمصروفات)
-      r4('أرباح وخسائر مرحلة', NULL, l_ret_earn, NULL);
-      r4('أرباح وخسائر الفترة', NULL, l_period_pl, NULL);
+      r4('أرباح وخسائر مرحلة', 'BS:RET', l_ret_earn, NULL);
+      r4('أرباح وخسائر الفترة', 'BS:PL', l_period_pl, NULL);
       l := l + l_ret_earn + l_period_pl;
     END IF;
     r4('إجمالي ' || p_name, NULL, NULL, l, 'tot');
@@ -117,7 +124,7 @@ BEGIN
   head('تكلفة المبيعات للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD'),
        '<th>البيان</th><th>الإيضاح</th><th>المبلغ</th>');
   FOR a IN (SELECT account_code, name_ar FROM accounts WHERE acc_level = 4 AND account_code LIKE l_cost_grp || '%' ORDER BY account_code) LOOP
-    r3(a.name_ar, a.account_code, b(a.account_code, d1, d2));
+    r3(a.name_ar, 'CS:' || a.account_code, b(a.account_code, d1, d2));
   END LOOP;
   r3('صافي تكلفة المبيعات', NULL, l_cogs, 'grand');
   htp.p('</tbody></table>');
@@ -126,18 +133,18 @@ BEGIN
   htp.p('<div class="fs-gap"></div>');
   head('قائمة الدخل للفترة من ' || TO_CHAR(d1, 'YYYY/MM/DD') || ' إلى ' || TO_CHAR(d2, 'YYYY/MM/DD'),
        '<th>البيان</th><th>الإيضاح</th><th>المبلغ</th>');
-  r3('إيراد النشاط', l_sales_grp, l_rev_gross);
-  r3('(-) مردودات إيراد النشاط', l_ret, l_returns);
+  r3('إيراد النشاط', 'IS:REV', l_rev_gross);
+  r3('(-) مردودات إيراد النشاط', 'IS:RET', l_returns);
   r3('صافي إيراد النشاط', NULL, l_net_rev, 'tot');
-  r3('(-) تكلفة المبيعات', l_cost_grp, l_cogs);
-  r3('(-) تلفيات المخزون', NULL, l_dmg);
+  r3('(-) تكلفة المبيعات', 'IS:COGS', l_cogs);
+  r3('(-) تلفيات المخزون', 'IS:DMG', l_dmg);
   r3('إجمالي الربح أو الخسارة التشغيلي', NULL, l_gross_op, 'tot');
-  r3('(+) الإيرادات الأخرى', NULL, l_other_rev);
+  r3('(+) الإيرادات الأخرى', 'IS:OREV', l_other_rev);
   r3('مجمل الربح أو الخسارة', NULL, l_gross, 'tot');
-  r3('(-) المصروفات العمومية والإدارية', NULL, l_admin);
-  r3('(-) الإهلاك', NULL, l_dep);
+  r3('(-) المصروفات العمومية والإدارية', 'IS:ADM', l_admin);
+  r3('(-) الإهلاك', 'IS:DEP', l_dep);
   r3('صافي الربح القابل للتوزيع', NULL, l_before_tax, 'tot');
-  r3('(-) الضرائب والزكاة', NULL, l_tax);
+  r3('(-) الضرائب والزكاة', 'IS:TAX', l_tax);
   r3('صافي الربح أو الخسارة', NULL, l_net, 'grand');
   htp.p('</tbody></table></div>');
 
