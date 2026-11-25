@@ -1132,6 +1132,9 @@ item(name => 'P1_MODE', region => 'f', type => 'select', label => 'العرض', 
 table_region(name => 'kpi', title => 'المؤشرات', sql => src('p1_kpi.sql'), seq => 10, span => 4);
 table_region(name => 'comp', title => 'الإيرادات والمصروفات شهرياً', sql => src('p1_monthly.sql'), seq => 20, span => 8, same_row => 1);
 table_region(name => 'alerts', title => 'تنبيهات', sql => src('p1_alerts.sql'), seq => 30);
+# التوالف التي تنتظر قرار التصفير ، والأصناف القاربت انتهاء صلاحيتها
+table_region(name => 'damaged', title => 'التوالف غير المصفّاة (تنتظر قرار المدير)', sql => src('p1_damaged.sql'), seq => 40, span => 6);
+table_region(name => 'expiry', title => 'أصناف قاربت انتهاء الصلاحية (خلال 3 أشهر)', sql => src('p1_expiry.sql'), seq => 50, span => 6, same_row => 1);
 process(name => 'DEFAULTS', point => 'BEFORE_HEADER', code => join("\n",
   "IF :P1_YEAR IS NULL THEN :P1_YEAR := TO_CHAR(SYSDATE, 'YYYY'); END IF;",
   "IF :P1_MODE IS NULL THEN :P1_MODE := 'SEP'; END IF;"));
