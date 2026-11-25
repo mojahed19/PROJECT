@@ -147,7 +147,7 @@ sub region {
     plug_display_condition_type=> $r{cond} ? "'EXPRESSION'" : undef,
     plug_display_when_condition=> $r{cond} ? lit($r{cond}) : undef,
     plug_display_when_cond2    => $r{cond} ? "'PLSQL'" : undef,
-    %src,
+    (map { $_ => $src{$_} } sort keys %src),
   ) . "\n);\n");
   ir_columns($id, %r) if $r{type} eq 'ir';
   return $id;
@@ -353,7 +353,7 @@ sub item {
     prompt                => lit($i{label} // $i{name}),
     source                => $i{col} ? lit($i{col}) : undef,
     source_type           => $i{col} ? "'REGION_SOURCE_COLUMN'" : undef,
-    %t,
+    (map { $_ => $t{$_} } sort keys %t),   # ترتيب ثابت للسمات حتى لا يتغير f100.sql بين البناءات
     %{ $i{attrs} // {} },    # سمات إضافية كما ضبطها المستخدم في APEX Builder (مثل attribute_03)
     tag_attributes        => $i{readonly} ? "'readonly tabindex=\"-1\" style=\"background:#f3f3f3\"'" : undef,
     begin_on_new_line     => $i{same_line} ? "'N'" : undef,
@@ -396,7 +396,7 @@ sub button {
     button_execute_validations => $b{novalidate} ? "'N'" : undef,
     confirm_message          => $b{confirm} ? lit($b{confirm}) : undef,
     confirm_style            => $b{confirm} ? "'danger'" : undef,
-    %cond,
+    (map { $_ => $cond{$_} } sort keys %cond),
     database_action          => $b{dml} ? lit($b{dml}) : undef,
     security_scheme          => $b{auth} ? wid($SEC{$b{auth}}) : undef,
     warn_on_unsaved_changes  => $action eq 'REDIRECT_URL' ? 'null' : undef,
@@ -425,7 +425,7 @@ sub process {
     id                     => wid($id),
     process_sequence       => $p{seq} // 10,
     process_point          => lit($p{point} // 'AFTER_SUBMIT'),
-    %type,
+    (map { $_ => $type{$_} } sort keys %type),
     process_name           => lit($p{name}),
     error_display_location => "'INLINE_IN_NOTIFICATION'",
     process_when_button_id => $p{button} ? wid($BTN{"$CUR_PAGE:$p{button}"} // die "no button $p{button}") : undef,
