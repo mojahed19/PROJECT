@@ -52,6 +52,9 @@ PROMPT ===== 21_year_closing.sql
 @db/21_year_closing.sql
 PROMPT ===== 22_no_delete_posted.sql
 @db/22_no_delete_posted.sql
+-- قبل 24: شغّل مرة واحدة بصلاحية SYS: sqlplus / as sysdba @db/23_backup_sys_setup.sql
+PROMPT ===== 24_backup.sql
+@db/24_backup.sql
 
 PROMPT ===== Invalid objects check
 SELECT object_type, object_name FROM user_objects WHERE status = 'INVALID';

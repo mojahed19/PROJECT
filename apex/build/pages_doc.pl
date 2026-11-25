@@ -1188,6 +1188,61 @@ branch_self('P96_FROM', 'P96_TO');
 end_page();
 
 # =====================================================================
+# 97 النسخ الاحتياطي (للمدير): المستخدم يكتب المجلد واسم الملف ، للتطبيق و/أو قاعدة البيانات (db/23 ، db/24)
+# =====================================================================
+page(id => 97, name => 'النسخ الاحتياطي', alias => 'BACKUP', auth => 'IS_GM');
+region(name => 'f', title => 'نسخة احتياطية جديدة', type => 'static', seq => 5, html => <<'HTML');
+<div class="jl-hint">
+المجلد على جهاز قاعدة البيانات (هذا الجهاز) ويجب أن يكون موجوداً ، مثل <b>D:\MOSS_Backup</b> أو قرص خارجي <b>E:\Backup</b>.
+اسم الملف بحروف إنجليزية وأرقام و _ - فقط ، ويُضاف الامتداد تلقائياً: <b>.sql</b> للتطبيق و <b>.dmp</b> لقاعدة البيانات (مع ملف سجل <b>.log</b>).
+نسخة قاعدة البيانات قد تستغرق دقيقتين ؛ انتظر حتى تظهر الرسالة.
+</div>
+HTML
+item(name => 'P97_TYPE', region => 'f', type => 'select', label => 'نوع النسخة', seq => 10, required => 1,
+     lov => "SELECT 'التطبيق وقاعدة البيانات' d, 'BOTH' r FROM dual UNION ALL SELECT 'التطبيق فقط', 'APP' FROM dual UNION ALL SELECT 'قاعدة البيانات فقط', 'DB' FROM dual");
+item(name => 'P97_FOLDER', region => 'f', label => 'مكان التخزين (المجلد)', seq => 20, required => 1, same_line => 1,
+);
+item(name => 'P97_FILE', region => 'f', label => 'اسم الملف', seq => 30, required => 1, same_line => 1);
+button(name => 'BACKUP', region => 'f', label => 'إنشاء النسخة', hot => 1, seq => 10);
+table_region(name => 'log', title => 'سجل النسخ الاحتياطية (آخر 50)', seq => 10, sql => <<'SQL');
+SELECT TO_CHAR(created_on, 'YYYY/MM/DD HH24:MI') AS "الوقت",
+       DECODE(backup_type, 'APP', 'التطبيق', 'DB', 'قاعدة البيانات') AS "النوع",
+       folder || '\' || file_name AS "الملف",
+       CASE WHEN file_size IS NOT NULL THEN TO_CHAR(ROUND(file_size / 1024), 'FM999G999G990') || ' كيلوبايت' END AS "الحجم",
+       DECODE(status, 'OK', 'تم', 'فشل') AS "الحالة",
+       CASE WHEN status = 'ERROR' THEN message END AS "سبب الفشل",
+       created_by AS "المستخدم"
+FROM   backup_log
+ORDER  BY backup_id DESC
+FETCH FIRST 50 ROWS ONLY
+SQL
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P97_TYPE IS NULL THEN :P97_TYPE := 'BOTH'; END IF;",
+  "IF :P97_FOLDER IS NULL THEN",
+  "  SELECT NVL(MAX(folder) KEEP (DENSE_RANK LAST ORDER BY backup_id), 'D:\\MOSS_Backup') INTO :P97_FOLDER FROM backup_log WHERE status = 'OK';",
+  "END IF;",
+  "IF :P97_FILE IS NULL THEN :P97_FILE := 'MOSS_' || TO_CHAR(SYSDATE, 'YYYYMMDD_HH24MI'); END IF;"));
+process(name => 'RUN_BACKUP', seq => 10, button => 'BACKUP', code => <<'SQL');
+DECLARE
+  l_msg VARCHAR2(4000); l_all VARCHAR2(4000);
+BEGIN
+  FOR t IN (SELECT column_value k FROM TABLE(apex_t_varchar2('APP', 'DB'))
+            WHERE :P97_TYPE = 'BOTH' OR :P97_TYPE = column_value) LOOP
+    backup_run(t.k, :P97_FOLDER, :P97_FILE, :APP_USER, l_msg);
+    l_all := l_all || CASE WHEN l_all IS NOT NULL THEN ' ، ' END || l_msg;
+  END LOOP;
+  apex_application.g_print_success_message := l_all;
+  :P97_FILE := NULL;   -- اسم جديد بالوقت للنسخة التالية
+EXCEPTION WHEN OTHERS THEN
+  apex_error.add_error(p_message => REGEXP_REPLACE(SQLERRM, '^ORA-[0-9]+: ', '')
+                         || CASE WHEN l_all IS NOT NULL THEN ' (تم قبلها: ' || l_all || ')' END,
+                       p_display_location => apex_error.c_inline_in_notification);
+END;
+SQL
+branch_self('P97_TYPE', 'P97_FOLDER', 'P97_FILE');
+end_page();
+
+# =====================================================================
 # 100 مسير الرواتب + 101 قسيمة + 102 التوزيع
 # =====================================================================
 page(id => 100, name => 'مسير الرواتب', alias => 'PAYROLL', auth => 'IS_HR');
