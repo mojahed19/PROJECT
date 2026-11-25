@@ -15,8 +15,12 @@ use strict;
 use warnings;
 
 my ($offset, $ws_live, @pages) = @ARGV;
-die "usage: page_only.pl <offset> <workspace_id> <page> [page...]\n" unless defined $offset && $ws_live && @pages;
-my $LOCAL_SHIFT = 1_000_000_000;   # إزاحة إضافية لمعرّفات مكوّنات الصفحة
+die "usage: page_only.pl <offset> <workspace_id> <page>\n" unless defined $offset && $ws_live && @pages;
+# معالج الاستيراد في APEX يثبّت الصفحة الأولى فقط من الملف: ملف مستقل لكل صفحة
+die "one page per file: APEX page import installs only the first page\n" if @pages > 1;
+# إزاحة إضافية لمعرّفات مكوّنات الصفحة ، مختلفة في كل بناء (حسب الوقت) حتى لا تتعارض
+# مع صفحات ثُبّتت بهذه الطريقة سابقاً (ترقيم المولّد يتغير بين البناءات)
+my $LOCAL_SHIFT = (time() % 1_000_000 + 1) * 10_000_000;
 
 my $file = "$0"; $file =~ s{build/page_only\.pl$}{app/f100.sql};
 open my $fh, '<', $file or die "$file: $!";
