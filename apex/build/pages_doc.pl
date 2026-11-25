@@ -197,8 +197,9 @@ region(name => 'f', title => 'بحث', type => 'static', html => '', seq => 5);
 item(name => 'P41_TYPE', region => 'f', type => 'select', label => 'النوع', null => 'الكل', submit => 1,
      lov => "SELECT 'توريد نقدي' d, 'R' r FROM dual UNION ALL SELECT 'صرف نقدي', 'P' FROM dual");
 item(name => 'P41_STATUS', region => 'f', type => 'select', label => 'الحالة', null => 'الكل', submit => 1, seq => 20, same_line => 1, lov => $LOV{wf_status});
-region(name => 'ir', title => 'الأذونات النقدية', type => 'ir', sql => src('p41_ir.sql'), seq => 10,
+region(name => 'ir', title => 'الأذونات النقدية', type => 'ir', sql => src('p41_ir.sql'), seq => 10, hide => ['VOUCHER_TYPE'],
        links => { 'الرقم' => 'f?p=&APP_ID.:40:&SESSION.::&DEBUG.:40:P40_VOUCHER_ID,P40_VOUCHER_TYPE:#VOUCHER_ID#,#VOUCHER_TYPE#' });
+branch_self('P41_TYPE', 'P41_STATUS');   # الفلاتر تبقى بعد اختيارها
 end_page();
 
 # =====================================================================
@@ -268,8 +269,9 @@ region(name => 'f', title => 'بحث', type => 'static', html => '', seq => 5);
 item(name => 'P46_TYPE', region => 'f', type => 'select', label => 'النوع', null => 'الكل', submit => 1,
      lov => "SELECT 'توريد شيكات' d, 'R' r FROM dual UNION ALL SELECT 'صرف شيكات', 'P' FROM dual");
 item(name => 'P46_STATUS', region => 'f', type => 'select', label => 'الحالة', null => 'الكل', submit => 1, seq => 20, same_line => 1, lov => $LOV{wf_status});
-region(name => 'ir', title => 'أذونات الشيكات', type => 'ir', sql => src('p46_ir.sql'), seq => 10,
+region(name => 'ir', title => 'أذونات الشيكات', type => 'ir', sql => src('p46_ir.sql'), seq => 10, hide => ['VOUCHER_TYPE'],
        links => { 'الرقم' => 'f?p=&APP_ID.:45:&SESSION.::&DEBUG.:45:P45_VOUCHER_ID,P45_VOUCHER_TYPE:#VOUCHER_ID#,#VOUCHER_TYPE#' });
+branch_self('P46_TYPE', 'P46_STATUS');   # الفلاتر تبقى بعد اختيارها
 end_page();
 
 # =====================================================================
@@ -286,7 +288,7 @@ item(name => 'P47_FROM', region => 'f', type => 'date', label => 'استحقاق
 item(name => 'P47_TO',   region => 'f', type => 'date', label => 'إلى', seq => 40, same_line => 1);
 button(name => 'GO', region => 'f', label => 'عرض', seq => 10, hot => 1);
 region(name => 'ir', title => 'الشيكات حسب تاريخ الاستحقاق', type => 'ir', sql => src('p47_ir.sql'), seq => 10,
-       links => { 'إجراء' => 'f?p=&APP_ID.:47:&SESSION.::&DEBUG.::P47_CHEQUE_ID:#CHEQUE_ID#' });
+       links => { 'إجراء' => 'f?p=&APP_ID.:47:&SESSION.::&DEBUG.::P47_CHEQUE_ID,P47_TYPE,P47_STATUS,P47_FROM,P47_TO:#CHEQUE_ID#,&P47_TYPE.,&P47_STATUS.,&P47_FROM.,&P47_TO.' });
 region(name => 'act', title => 'تسوية الشيك المختار', type => 'static', seq => 20, cond => ':P47_CHEQUE_ID IS NOT NULL',
        html => '<div class="doc-meta">&P47_INFO.</div>');
 item(name => 'P47_CHEQUE_ID', region => 'act', type => 'hidden', seq => 1);
@@ -315,7 +317,7 @@ item(name => 'P47_JOURNAL_ID', region => 'act', type => 'hidden', seq => 6);
 item(name => 'P47_JNL_STATUS', region => 'act', type => 'hidden', seq => 7);
 process(name => 'LOAD_CHEQUE', point => 'BEFORE_HEADER', seq => 10, cond => ':P47_CHEQUE_ID IS NOT NULL', code => src('p47_load.sql'));
 process(name => 'SETTLE', seq => 10, when_req => 'CLEAR,BOUNCE,UNSETTLE', code => src('p47_settle.sql'));
-branch_self('P47_CHEQUE_ID');
+branch_self('P47_CHEQUE_ID', 'P47_TYPE', 'P47_STATUS', 'P47_FROM', 'P47_TO');
 end_page();
 
 # =====================================================================
