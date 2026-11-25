@@ -97,12 +97,12 @@ item(name => 'P30_JOURNAL_NO', region => 'head', type => 'hidden', seq => 2);
 item(name => 'P30_STATUS',     region => 'head', type => 'hidden', seq => 3);
 item(name => 'P30_SOURCE_TYPE',region => 'head', type => 'hidden', seq => 4);
 item(name => 'P30_COMPANY_ID', region => 'head', type => 'select', label => 'الشركة', lov => $LOV{companies}, seq => 10, required => 1);
-item(name => 'P30_JT_CODE',    region => 'head', type => 'select', label => 'نوع القيد', lov => $LOV{jt_manual}, extra => 1, seq => 20, same_line => 1, required => 1);
-item(name => 'P30_JOURNAL_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 30, same_line => 1, required => 1);
-item(name => 'P30_CURRENCY_CODE', region => 'head', type => 'select', label => 'العملة', lov => $LOV{currencies}, seq => 40, required => 1);
-item(name => 'P30_EXCHANGE_RATE', region => 'head', label => 'سعر الصرف', seq => 50, same_line => 1);
-item(name => 'P30_REF_NO',     region => 'head', label => 'المرجع', seq => 60, same_line => 1);
-item(name => 'P30_DESCRIPTION', region => 'head', label => 'البيان', seq => 70, max => 500);
+item(name => 'P30_JT_CODE',    region => 'head', type => 'select', label => 'نوع القيد', lov => $LOV{jt_manual}, extra => 1, seq => 30, same_line => 1, required => 1);
+item(name => 'P30_JOURNAL_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, same_line => 1, required => 1);
+item(name => 'P30_CURRENCY_CODE', region => 'head', type => 'select', label => 'العملة', lov => $LOV{currencies}, seq => 50, required => 1);
+item(name => 'P30_EXCHANGE_RATE', region => 'head', label => 'سعر الصرف', seq => 60, same_line => 1);
+item(name => 'P30_REF_NO',     region => 'head', type => 'hidden', protected => 1, no_checksum => 1, seq => 70);   # أخفاه المستخدم
+item(name => 'P30_DESCRIPTION', region => 'head', label => 'البيان', seq => 80, same_line => 1, max => 500);
 region(name => 'lines', title => 'سطور القيد', type => 'static', seq => 20,
        html => "<div id=\"jv_lines\"></div>\n<div style=\"margin-top:8px\">الفرق: <span id=\"jv_diff\" class=\"jv-diff ok\">0.00</span></div>");
 my $draft = can_save('P30_STATUS') . " AND NVL(:P30_SOURCE_TYPE, 'MANUAL') IN ('MANUAL','CHEQUE')";
@@ -165,9 +165,9 @@ item(name => $_->[0], region => 'head', type => 'hidden', seq => $_->[1])
   for (['P40_VOUCHER_ID',1],['P40_VOUCHER_TYPE',2],['P40_VOUCHER_NO',3],['P40_STATUS',4],['P40_JOURNAL_ID',5],['P40_TITLE',6]);
 item(name => 'P40_VOUCHER_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, required => 1);
 item(name => 'P40_CASH_ACCOUNT_ID', region => 'head', type => 'select', label => 'الخزينة', lov => $LOV{cash}, null => 1, seq => 30, same_line => 1, required => 1);
-item(name => 'P40_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label => 'الحساب المقابل', lov => $LOV{accounts4}, seq => 40, required => 1);
-item(name => 'P40_AMOUNT', region => 'head', label => 'المبلغ', seq => 50, same_line => 1, required => 1);
-item(name => 'P40_PARTY_NAME', region => 'head', label => '&P40_PARTY_LABEL.', seq => 60);
+item(name => 'P40_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label => 'الحساب المقابل', lov => $LOV{accounts4}, seq => 40, same_line => 1, required => 1);
+item(name => 'P40_AMOUNT', region => 'head', label => 'المبلغ', seq => 50, required => 1);
+item(name => 'P40_PARTY_NAME', region => 'head', label => '&P40_PARTY_LABEL.', seq => 60, same_line => 1);
 item(name => 'P40_PARTY_LABEL', region => 'head', type => 'hidden', seq => 7);
 item(name => 'P40_DESCRIPTION', region => 'head', label => 'البيان', seq => 70, same_line => 1, max => 500, required => 1);
 button(name => 'SAVE', region => 'head', label => 'حفظ', hot => 1, seq => 10, cond => can_save('P40_STATUS'));
@@ -220,7 +220,7 @@ item(name => 'P45_COUNTER_ACCOUNT_ID', region => 'head', type => 'popup', label 
 item(name => 'P45_ACC_LABEL', region => 'head', type => 'hidden', seq => 8);
 item(name => 'P45_PARTY_LABEL', region => 'head', type => 'hidden', seq => 9);
 item(name => 'P45_PARTY_NAME', region => 'head', label => '&P45_PARTY_LABEL.', seq => 40, same_line => 1, required => 1);
-item(name => 'P45_DESCRIPTION', region => 'head', label => 'البيان', seq => 50, max => 500, required => 1);
+item(name => 'P45_DESCRIPTION', region => 'head', label => 'البيان', seq => 50, same_line => 1, max => 500, required => 1);
 region(name => 'lines', title => 'الشيكات', type => 'static', seq => 20,
        html => "<div id=\"chq_lines\"></div>\n<div style=\"margin-top:8px\"><b>إجمالي الشيكات:</b> <span id=\"chq_total\">0.00</span></div>");
 button(name => 'SAVE', region => 'lines', label => 'حفظ (Ctrl+S)', js => 'chq.save();', hot => 1, seq => 10, cond => can_save('P45_STATUS'));
@@ -370,15 +370,14 @@ item(name => 'P50_PAY_TYPE', region => 'head', type => 'select', label => 'طر�
 # الخيارات تُبنى بالمتصفح حسب طريقة الدفع ، والاستعلام هنا يعرض الحساب المحفوظ فقط
 item(name => 'P50_ACCOUNT_ID', region => 'head', type => 'select', label => 'الحساب', seq => 30, same_line => 1, null => '- اختر -',
      lov => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE account_id = :P50_ACCOUNT_ID");
-item(name => 'P50_CUSTOMER_NAME', region => 'head', label => 'اسم العميل (اختياري)', seq => 40, max => 150);
-item(name => 'P50_WAREHOUSE_ID', region => 'head', type => 'select', label => 'المخزن', seq => 80, required => 1,
+item(name => 'P50_CUSTOMER_NAME', region => 'head', type => 'hidden', protected => 1, no_checksum => 1, seq => 40);   # أخفاه المستخدم
+item(name => 'P50_WAREHOUSE_ID', region => 'head', type => 'select', label => 'المخزن', seq => 80, same_line => 1, required => 1,
      lov => "SELECT name_ar d, warehouse_id r FROM warehouses WHERE company_id = :G_PARENT_ID AND is_active = 'Y' ORDER BY name_ar");
-item(name => 'P50_PRICE_LIST_ID', region => 'head', type => 'select', label => 'قائمة الأسعار (اختياري)', seq => 90, same_line => 1, null => 'بدون',
-     lov => "SELECT name_ar || ' (' || currency_code || ')' d, price_list_id r FROM price_lists WHERE is_active = 'Y' ORDER BY name_ar");
+item(name => 'P50_PRICE_LIST_ID', region => 'head', type => 'hidden', protected => 1, no_checksum => 1, seq => 90);   # أخفاه المستخدم
 item(name => 'P50_CURRENCY_CODE', region => 'head', type => 'select', label => 'العملة', lov => $LOV{currencies}, seq => 100);
 item(name => 'P50_EXCHANGE_RATE', region => 'head', label => 'سعر الصرف', seq => 110, same_line => 1);
-item(name => 'P50_DISCOUNT_AMOUNT', region => 'head', label => 'خصم إضافي', seq => 120, same_line => 1);
-item(name => 'P50_DESCRIPTION', region => 'head', label => 'البيان', seq => 130, max => 500);
+item(name => 'P50_DISCOUNT_AMOUNT', region => 'head', type => 'hidden', protected => 1, no_checksum => 1, seq => 120);   # أخفاه المستخدم
+item(name => 'P50_DESCRIPTION', region => 'head', type => 'hidden', protected => 1, no_checksum => 1, seq => 130);   # أخفاه المستخدم
 region(name => 'lines', title => 'الأصناف', type => 'static', seq => 20, html => <<'HTML');
 <div class="jl-hint">ابحث بالكود أو بجزء من الاسم أو بالباركود. الأسهم للتنقل في النتائج و Enter للاختيار.</div>
 <div id="inv_lines"></div>
@@ -876,7 +875,9 @@ item(name => 'P85_TO',   region => 'f', type => 'date', label => 'إلى تار�
 item(name => 'P85_GROUP_LEVEL',  region => 'f', type => 'select', label => 'مستوى التجميع (الإيضاح)', lov => $levels, seq => 30);
 item(name => 'P85_DETAIL_LEVEL', region => 'f', type => 'select', label => 'مستوى التفصيل', lov => $levels, seq => 40, same_line => 1);
 # إيضاح بند واحد (الذمم المدينة ، الموردون ، النقدية ، الأصول ...) لطباعته منفرداً
+# (في نفس السطر + attribute_03 كما ضبطه المستخدم في APEX Builder)
 item(name => 'P85_ACCOUNT_ID', region => 'f', type => 'select', label => 'إيضاح بند واحد', null => 'كل الإيضاحات', submit => 1, seq => 50,
+     same_line => 1, attrs => { attribute_03 => "'Y'" },
      lov => "SELECT LPAD(' ', (acc_level - 1) * 4, ' ') || account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE acc_level <= 3 ORDER BY account_code");
 button(name => 'GO', region => 'f', label => 'عرض', hot => 1, seq => 10);
 button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 20, js => 'window.print();');
@@ -1007,7 +1008,7 @@ page(id => 93, name => 'كارت العهدة', alias => 'ITEM-CARD', auth => 'I
 region(name => 'f', title => 'الخيارات', type => 'static', html => '', seq => 5, class => 'no-print');
 item(name => 'P93_ITEM_ID', region => 'f', type => 'popup', label => 'الصنف', lov => "SELECT item_code || ' - ' || name_ar d, item_id r FROM items ORDER BY item_code", required => 1);
 item(name => 'P93_WAREHOUSE_ID', region => 'f', type => 'select', label => 'المخزن', lov => $LOV{warehouses}, null => 1, seq => 20, same_line => 1, required => 1);
-item(name => 'P93_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 30, required => 1);
+item(name => 'P93_FROM', region => 'f', type => 'date', label => 'من تاريخ', seq => 30, same_line => 1, required => 1);
 item(name => 'P93_TO',   region => 'f', type => 'date', label => 'إلى تاريخ', seq => 40, same_line => 1, required => 1);
 item(name => 'P93_INFO', region => 'f', type => 'hidden', seq => 50);
 button(name => 'GO', region => 'f', label => 'عرض', hot => 1);

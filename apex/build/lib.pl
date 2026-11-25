@@ -354,6 +354,7 @@ sub item {
     source                => $i{col} ? lit($i{col}) : undef,
     source_type           => $i{col} ? "'REGION_SOURCE_COLUMN'" : undef,
     %t,
+    %{ $i{attrs} // {} },    # سمات إضافية كما ضبطها المستخدم في APEX Builder (مثل attribute_03)
     tag_attributes        => $i{readonly} ? "'readonly tabindex=\"-1\" style=\"background:#f3f3f3\"'" : undef,
     begin_on_new_line     => $i{same_line} ? "'N'" : undef,
     colspan               => $i{span},
@@ -361,7 +362,7 @@ sub item {
     item_template_options => "'#DEFAULT#'",
     is_required           => $i{required} && $i{col} && $type ne 'hidden' ? 'true' : undef,   # الصفحات بدون نموذج: التحقق في الخادم
     is_persistent         => "'N'",
-    protection_level      => $type eq 'hidden' && $i{protected} ? "'S'" : undef,
+    protection_level      => $type eq 'hidden' && $i{protected} && !$i{no_checksum} ? "'S'" : undef,   # no_checksum: محمي القيمة بلا checksum (كما في Builder)
     display_when          => $i{cond} ? lit($i{cond}) : undef,
     display_when2         => $i{cond} ? "'PLSQL'" : undef,
     display_when_type     => $i{cond} ? "'EXPRESSION'" : undef,

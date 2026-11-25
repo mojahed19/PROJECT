@@ -386,15 +386,15 @@ item(name => 'P10_PARENT_ID', region => 'form', type => 'popup', label => 'ال�
 item(name => 'P10_ACCOUNT_CODE', region => 'form', type => 'hidden', seq => 20);
 item(name => 'P10_NAME_AR', region => 'form', label => 'الاسم', seq => 30, same_line => 1, required => 1);
 item(name => 'P10_NAME_EN', region => 'form', label => 'الاسم الإنجليزي', seq => 40);
-item(name => 'P10_ACC_TYPE', region => 'form', type => 'select', label => 'النوع', seq => 50, same_line => 1, required => 1,
+item(name => 'P10_ACC_TYPE', region => 'form', type => 'select', label => 'النوع', seq => 90, same_line => 1, required => 1,
      lov => "SELECT 'أصول' d, 'ASSET' r FROM dual UNION ALL SELECT 'خصوم', 'LIAB' FROM dual UNION ALL SELECT 'حقوق ملكية', 'EQUITY' FROM dual UNION ALL SELECT 'إيرادات', 'REV' FROM dual UNION ALL SELECT 'مصروفات', 'EXP' FROM dual");
-item(name => 'P10_NATURE', region => 'form', type => 'select', label => 'الطبيعة', seq => 60, required => 1,
+item(name => 'P10_NATURE', region => 'form', type => 'select', label => 'الطبيعة', seq => 50, same_line => 1, required => 1,
      lov => "SELECT 'مدين' d, 'D' r FROM dual UNION ALL SELECT 'دائن', 'C' FROM dual");
-item(name => 'P10_CASH_BANK', region => 'form', type => 'select', label => 'خزينة / بنك (المستوى 4 فقط)', seq => 70, same_line => 1,
+item(name => 'P10_CASH_BANK', region => 'form', type => 'select', label => 'خزينة / بنك (المستوى 4 فقط)', seq => 80,
      lov => "SELECT 'لا' d, 'N' r FROM dual UNION ALL SELECT 'خزينة', 'C' FROM dual UNION ALL SELECT 'بنك', 'B' FROM dual");
-item(name => 'P10_CURRENCY_CODE', region => 'form', type => 'select', label => 'عملة الحساب', lov => $LOV{currencies}, null => 'أي عملة', seq => 80);
-item(name => 'P10_COMPANY_ID', region => 'form', type => 'select', label => 'الشركة', lov => $LOV{all_companies}, null => 'مشترك لكل الشركات', seq => 90, same_line => 1);
-item(name => 'P10_IS_ACTIVE', region => 'form', type => 'select', label => 'فعّال', lov => $yn, seq => 100);
+item(name => 'P10_CURRENCY_CODE', region => 'form', type => 'select', label => 'عملة الحساب', lov => $LOV{currencies}, null => 'أي عملة', seq => 100);
+item(name => 'P10_COMPANY_ID', region => 'form', type => 'select', label => 'الشركة', lov => $LOV{all_companies}, null => 'مشترك لكل الشركات', seq => 110, same_line => 1);
+item(name => 'P10_IS_ACTIVE', region => 'form', type => 'select', label => 'فعّال', lov => $yn, seq => 120, same_line => 1);
 button(name => 'SAVE', region => 'form', label => 'حفظ', hot => 1, seq => 10);
 button(name => 'DELETE', region => 'form', label => 'حذف', position => 'PREVIOUS', seq => 20, if_not_null => 'P10_ACCOUNT_ID', novalidate => 1, confirm => 'حذف الحساب؟');
 button(name => 'NEW', region => 'form', label => 'جديد', position => 'PREVIOUS', seq => 30, url => 'f?p=&APP_ID.:10:&SESSION.::&DEBUG.:10::');
