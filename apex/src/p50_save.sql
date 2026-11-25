@@ -222,7 +222,8 @@ BEGIN
     WHERE il.invoice_id = l_id;
 
     SELECT -SUM(value_base) INTO l_cogs FROM stock_trans_lines WHERE trans_id = l_so;   -- موجب في البيع
-    l_sales_acc := setting(CASE l_ctype WHEN 'BRANCH' THEN 'SALES' ELSE 'SALES_EXT' END);
+    -- إيراد المبيعات: الآجلة في SALES_CREDIT ، والنقدية (خزينة أو بنك) في SALES_EXT
+    l_sales_acc := setting(CASE WHEN l_ctype = 'BRANCH' THEN 'SALES' WHEN l_pay = 'CREDIT' THEN 'SALES_CREDIT' ELSE 'SALES_EXT' END);
     l_ret_acc   := setting('SALES_RETURN');
     l_cogs_acc  := setting('COGS');
     l_inv_acc   := setting('INVENTORY');
