@@ -16,7 +16,7 @@ WITH pl AS (
   JOIN   accounts pa ON pa.account_id = b.account_id
   JOIN   accounts a  ON a.account_code LIKE pa.account_code || '%'
   JOIN   journal_lines jl ON jl.account_id = a.account_id
-  JOIN   journals j ON j.journal_id = jl.journal_id AND j.status = 'POSTED'
+  JOIN   journals j ON j.journal_id = jl.journal_id AND j.status = 'POSTED' AND j.source_type <> 'CLOSING'
                    AND EXTRACT(YEAR FROM j.journal_date) = TO_NUMBER(:P123_FY_YEAR)
   CROSS APPLY (SELECT CASE b.item_type WHEN 'EXP' THEN jl.debit_base - jl.credit_base
                                        ELSE jl.credit_base - jl.debit_base END amt FROM dual) x

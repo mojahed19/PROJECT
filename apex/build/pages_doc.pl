@@ -987,6 +987,57 @@ branch_self('P87_FROM', 'P87_TO', 'P87_TABLE', 'P87_USER', 'P87_ACTION');
 end_page();
 
 # =====================================================================
+# 88 إقفال السنة المالية (للمدير): معاينة ثم قيد إقفال إلى الأرباح المرحّلة وقفل السنة ، أو إعادة فتحها (db/21)
+# =====================================================================
+my $fy_run = sub {   # استدعاء إجراء الإقفال / الفتح ، والخطأ يظهر رسالة واضحة بدون رقم ORA
+  my $proc = shift;
+  return <<"SQL";
+DECLARE l_msg VARCHAR2(4000);
+BEGIN
+  $proc(TO_NUMBER(:P88_YEAR), :APP_USER, l_msg);
+  apex_application.g_print_success_message := l_msg;
+EXCEPTION WHEN OTHERS THEN
+  ROLLBACK;
+  apex_error.add_error(p_message => REGEXP_REPLACE(SQLERRM, '^ORA-[0-9]+: ', ''), p_display_location => apex_error.c_inline_in_notification);
+END;
+SQL
+};
+page(id => 88, name => 'إقفال السنة المالية', alias => 'YEAR-CLOSE', auth => 'IS_GM', css => <<'CSS');
+.nt-head { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 4px 0 14px; direction: rtl; }
+.nt-sub { font-size: 12px; font-weight: 400; text-decoration: none; color: #555; }
+.nt-block { max-width: 900px; margin: 0 auto 18px; direction: rtl; }
+.nt-title { font-size: 15px; font-weight: 700; margin: 0 0 6px; text-decoration: underline; }
+.nt-empty { text-align: center; color: #777; }
+.fy-st { margin: 0; padding-inline-start: 20px; line-height: 1.9; font-size: 14px; }
+.fy-st .ok, .fy-st b.ok { color: #146b2d; }
+.fy-st .bad, .fy-st b.bad { color: #b00; }
+.fs { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fs th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 5px; text-align: center; }
+.fs td { padding: 3px 6px; border-bottom: 1px solid #eee; }
+.fs td.n { text-align: left; direction: ltr; white-space: nowrap; }
+.fs td.nt { text-align: center; color: #555; white-space: nowrap; }
+.fs tr.grand td { font-weight: 700; border-top: 1px solid #000; }
+.fs tr.net td { border-bottom: 3px double #000; }
+@media print { .no-print { display: none !important; } }
+CSS
+region(name => 'f', title => 'السنة المالية', type => 'static', html => '', seq => 5, class => 'no-print');
+item(name => 'P88_YEAR', region => 'f', type => 'select', label => 'السنة', lov => $LOV{years}, submit => 1, seq => 10);
+item(name => 'P88_CLOSED', region => 'f', type => 'hidden', seq => 20);
+button(name => 'CLOSE_YEAR', region => 'f', label => 'إقفال السنة', hot => 1, seq => 10, cond => ":P88_CLOSED = 'N'",
+       confirm => 'سيُنشأ قيد إقفال يصفّر الإيرادات والمصروفات إلى الأرباح المرحّلة، وتُقفل السنة فلا يُقبل فيها أي إدخال. متابعة؟');
+button(name => 'REOPEN_YEAR', region => 'f', label => 'إعادة فتح السنة', seq => 20, cond => ":P88_CLOSED = 'Y'",
+       confirm => 'سيُحذف قيد الإقفال وتُفتح السنة للإدخال مرة أخرى. متابعة؟');
+button(name => 'PRINT', region => 'f', label => 'طباعة', seq => 30, js => 'window.print();');
+region(name => 'pv', title => 'المعاينة', type => 'plsql', no_header => 1, seq => 10, plsql => src('p88_preview.sql'));
+process(name => 'DEFAULTS', point => 'BEFORE_HEADER', seq => 5, code => join("\n",
+  "IF :P88_YEAR IS NULL THEN SELECT MIN(fy_year) INTO :P88_YEAR FROM fiscal_years WHERE is_closed = 'N'; END IF;",
+  "SELECT MAX(is_closed) INTO :P88_CLOSED FROM fiscal_years WHERE fy_year = TO_NUMBER(:P88_YEAR);"));
+process(name => 'CLOSE_YEAR', seq => 10, button => 'CLOSE_YEAR', code => $fy_run->('fy_close'));
+process(name => 'REOPEN_YEAR', seq => 20, button => 'REOPEN_YEAR', code => $fy_run->('fy_reopen'));
+branch_self('P88_YEAR');
+end_page();
+
+# =====================================================================
 # 90 حركات المخزون + 91 + 92 + 93
 # =====================================================================
 page(id => 90, name => 'حركة مخزون', alias => 'STOCK', title => '&P90_TITLE.', auth => 'IS_STORE',

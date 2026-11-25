@@ -18,7 +18,7 @@ DECLARE
   BEGIN
     SELECT NVL(SUM(jl.debit_base - jl.credit_base), 0) INTO l
     FROM   journal_lines jl
-    JOIN   journals j ON j.journal_id = jl.journal_id AND j.status IN ('POSTED','REVERSED')
+    JOIN   journals j ON j.journal_id = jl.journal_id AND j.status IN ('POSTED','REVERSED') AND j.source_type <> 'CLOSING'   -- قيد الإقفال لا يدخل في نتيجة الفترة
     JOIN   accounts a ON a.account_id = jl.account_id
     WHERE  a.account_code LIKE p_code || '%'
     AND    (p_from IS NULL OR j.journal_date >= p_from)

@@ -31,7 +31,7 @@ act AS (
   FROM journals j JOIN journal_lines l ON l.journal_id = j.journal_id
   JOIN accounts a ON a.account_id = l.account_id
   CROSS JOIN p
-  WHERE j.status IN ('POSTED','REVERSED')
+  WHERE j.status IN ('POSTED','REVERSED') AND j.source_type <> 'CLOSING'   -- قيد الإقفال لا يدخل في الفعلي
   AND EXTRACT(YEAR FROM j.journal_date) = :P121_FY_YEAR
   AND EXTRACT(MONTH FROM j.journal_date) BETWEEN p.lo AND p.hi
   AND (:P121_COMPANY_ID IS NULL OR j.company_id = :P121_COMPANY_ID)

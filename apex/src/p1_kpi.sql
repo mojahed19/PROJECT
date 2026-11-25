@@ -5,7 +5,7 @@ WITH mv AS (
   JOIN journal_lines l ON l.journal_id = j.journal_id
   JOIN accounts a ON a.account_id = l.account_id
   JOIN companies c ON c.company_id = j.company_id
-  WHERE j.status IN ('POSTED','REVERSED')
+  WHERE j.status IN ('POSTED','REVERSED') AND j.source_type <> 'CLOSING'   -- قيد الإقفال لا يدخل في الأرباح
   AND (:P1_COMPANY_ID IS NULL OR j.company_id = :P1_COMPANY_ID)
   AND (:G_USER_ROLE = 'ADMIN' OR j.company_id = :G_COMPANY_ID)
   AND (NVL(:P1_MODE,'SEP') = 'SEP' OR l.partner_company_id IS NULL)

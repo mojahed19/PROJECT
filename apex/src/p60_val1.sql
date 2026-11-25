@@ -5,6 +5,7 @@ BEGIN
   IF j.status <> 'POSTED'            THEN RETURN 'القيد غير مرحّل أو معكوس مسبقاً'; END IF;
   IF j.reversal_of_id IS NOT NULL
      OR j.jt_code = 'REV'            THEN RETURN 'لا يمكن عكس قيد عكسي'; END IF;
+  IF j.source_type = 'CLOSING'       THEN RETURN 'قيد الإقفال يُلغى بإعادة فتح السنة من صفحة إقفال السنة المالية'; END IF;
   SELECT COUNT(*) INTO l_cnt FROM invoices WHERE sub_journal_id = j.journal_id;
   IF l_cnt > 0 THEN RETURN 'هذا قيد شركة فرعية ناتج عن فاتورة. اعكس قيد الشركة الأم'; END IF;
   SELECT COUNT(*) INTO l_cnt FROM vouchers v JOIN cheques c ON c.voucher_id = v.voucher_id
