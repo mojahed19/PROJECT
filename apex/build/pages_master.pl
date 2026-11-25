@@ -41,6 +41,70 @@ BEGIN
      || ' @bottom-left { content: "صفحة " counter(page) " من " counter(pages); font-size: 9px; color: #555; } } }</style>');
 END;
 SQL
+# زر "تصدير Excel" بجانب زر "طباعة" في صفحات التقارير التي فيها جداول خاصة (القوائم المالية ، الإيضاحات ، أعمار الديون ،
+# أرصدة المخزون ، كارت العهدة ، ملخص الخزائن ...): يصدّر الجداول الظاهرة بعناوينها إلى ملف Excel من اليمين لليسار.
+# التقارير التفاعلية (IR) لها التنزيل في قائمة Actions فلا يُضاف لها ، ولا لصفحات إدخال المستندات وصفحات الطباعة
+region(name => 'excel', title => 'excel', type => 'static', no_header => 1, template => 'reg_blank', seq => 3,
+       cond => ":APP_PAGE_ID NOT IN (30, 32, 40, 42, 45, 48, 50, 53, 54, 55, 57, 82, 90, 95, 9999)", html => <<'HTML');
+<script>
+(function () {
+  var TABLES = '.fs, .jl-table, table.t-Report-report';
+  var HEADS  = '.nt-head, .fs-title, .nt-title, .t-Region-title';
+  function tables() {
+    return Array.prototype.filter.call(document.querySelectorAll('#t_Body_content ' + TABLES.split(', ').join(', #t_Body_content ')), function (t) {
+      return !t.closest('.a-IRR, .ch-wrap, .no-print') && t.offsetParent !== null && t.rows.length > 0;
+    });
+  }
+  function cellText(td) {
+    var c = td.cloneNode(true);
+    Array.prototype.forEach.call(c.querySelectorAll('input, textarea, select'), function (i) { i.replaceWith(document.createTextNode(i.value || '')); });
+    Array.prototype.forEach.call(c.querySelectorAll('.no-print, button'), function (x) { x.remove(); });
+    return c.textContent.replace(/\s+/g, ' ').trim();
+  }
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function exportXls() {
+    var list = tables(); if (!list.length) { apex.message.alert('لا توجد جداول لتصديرها'); return; }
+    var nodes = document.querySelectorAll('#t_Body_content ' + HEADS.split(', ').join(', #t_Body_content ') + ', #t_Body_content ' + TABLES.split(', ').join(', #t_Body_content '));
+    var html = '', head = '';
+    Array.prototype.forEach.call(nodes, function (n) {
+      if (n.matches(HEADS)) { if (!n.closest('.no-print')) head = n.textContent.replace(/\s+/g, ' ').trim(); return; }
+      if (list.indexOf(n) < 0) return;
+      if (head) { html += '<h3>' + esc(head) + '</h3>'; head = ''; }
+      html += '<table border="1">';
+      Array.prototype.forEach.call(n.rows, function (r) {
+        html += '<tr>';
+        Array.prototype.forEach.call(r.cells, function (c) {
+          var tag = c.tagName === 'TH' ? 'th' : 'td';
+          var span = (c.colSpan > 1 ? ' colspan="' + c.colSpan + '"' : '') + (c.rowSpan > 1 ? ' rowspan="' + c.rowSpan + '"' : '');
+          html += '<' + tag + span + (tag === 'th' ? ' style="background:#e8f5ec;font-weight:bold"' : '') + '>' + esc(cellText(c)) + '</' + tag + '>';
+        });
+        html += '</tr>';
+      });
+      html += '</table><br>';
+    });
+    var title = (document.title || 'report').replace(/[\\\/:*?"<>|]/g, ' ').trim();
+    var d = new Date(), stamp = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    var doc = '<html xmlns:x="urn:schemas-microsoft-com:office:excel" dir="rtl"><head><meta charset="utf-8">'
+            + '<style>table{border-collapse:collapse;font-family:Tahoma,Arial}th,td{padding:3px 6px}</style></head>'
+            + '<body dir="rtl"><h2>' + esc(title) + '</h2>' + html + '</body></html>';
+    var blob = new Blob(['\ufeff' + doc], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = title + ' ' + stamp + '.xls';
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function addButton() {
+    if (!tables().length || document.getElementById('btnExcelExport')) return;
+    var p = Array.prototype.filter.call(document.querySelectorAll('#t_Body_content button'), function (b) { return b.textContent.trim() === 'طباعة'; })[0];
+    if (!p) return;
+    var b = document.createElement('button');
+    b.type = 'button'; b.id = 'btnExcelExport'; b.className = 't-Button no-print'; b.style.marginInlineStart = '4px'; b.textContent = 'تصدير Excel';
+    b.addEventListener('click', exportXls);
+    p.parentNode.insertBefore(b, p.nextSibling);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addButton); else addButton();
+  window.addEventListener('load', addButton);
+})();
+</script>
+HTML
 end_page();
 
 # ---------------------------------------------------------------- مولّد القائمة + النموذج
