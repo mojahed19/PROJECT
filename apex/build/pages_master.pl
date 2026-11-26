@@ -527,6 +527,8 @@ item(name => 'P10_CASH_BANK', region => 'form', type => 'select', label => 'خز
 item(name => 'P10_CURRENCY_CODE', region => 'form', type => 'select', label => 'عملة الحساب', lov => $LOV{currencies}, null => 'أي عملة', seq => 100);
 item(name => 'P10_COMPANY_ID', region => 'form', type => 'select', label => 'الشركة', lov => $LOV{all_companies}, null => 'مشترك لكل الشركات', seq => 110, same_line => 1);
 item(name => 'P10_IS_ACTIVE', region => 'form', type => 'select', label => 'فعّال', lov => $yn, seq => 120, same_line => 1);
+# حد الائتمان (db/26): يُحفظ لحسابات العملاء فقط (المستوى 4 تحت 1106) ، فارغ = بدون حد
+item(name => 'P10_CREDIT_LIMIT', region => 'form', label => 'حد الائتمان (لحسابات العملاء فقط ، فارغ = بدون حد)', seq => 130, max => 20);
 button(name => 'SAVE', region => 'form', label => 'حفظ', hot => 1, seq => 10);
 button(name => 'DELETE', region => 'form', label => 'حذف', position => 'PREVIOUS', seq => 20, if_not_null => 'P10_ACCOUNT_ID', novalidate => 1, confirm => 'حذف الحساب؟');
 button(name => 'NEW', region => 'form', label => 'جديد', position => 'PREVIOUS', seq => 30, url => 'f?p=&APP_ID.:10:&SESSION.::&DEBUG.:10::');
@@ -540,6 +542,7 @@ BEGIN
   :P10_NAME_AR := a.name_ar; :P10_NAME_EN := a.name_en; :P10_ACC_TYPE := a.acc_type; :P10_NATURE := a.nature;
   :P10_CASH_BANK := a.cash_bank; :P10_CURRENCY_CODE := a.currency_code; :P10_COMPANY_ID := a.company_id;
   :P10_IS_ACTIVE := a.is_active;
+  :P10_CREDIT_LIMIT := TO_CHAR(a.credit_limit);
 END;
 SQL
 process(name => 'NEW_DEFAULTS', point => 'BEFORE_HEADER', seq => 20, cond => ':P10_ACCOUNT_ID IS NULL', code => (<<'SQL' =~ s{__SUGGEST__}{src('p10_suggest.sql')}er));
@@ -561,6 +564,16 @@ check(name => 'CHECK_CODE',   seq => 20, button => 'SAVE', code => src('p10_val2
 check(name => 'CHECK_MOVES',  seq => 30, button => 'SAVE', code => src('p10_val3.sql'));
 check(name => 'CHECK_MOVE_PARENT', seq => 40, button => 'SAVE', code => src('p10_val5.sql'));
 check(name => 'CHECK_DELETE', seq => 50, button => 'DELETE', code => src('p10_val4.sql'));
+check(name => 'CHECK_CREDIT_LIMIT', seq => 45, button => 'SAVE', code => <<'SQL');
+DECLARE l NUMBER;
+BEGIN
+  IF :P10_CREDIT_LIMIT IS NULL THEN RETURN NULL; END IF;
+  l := TO_NUMBER(REPLACE(:P10_CREDIT_LIMIT, ',', ''));
+  IF l < 0 THEN RETURN 'حد الائتمان لا يكون سالباً'; END IF;
+  RETURN NULL;
+EXCEPTION WHEN OTHERS THEN RETURN 'حد الائتمان يجب أن يكون رقماً';
+END;
+SQL
 process(name => 'SAVE_ACCOUNT', seq => 60, button => 'SAVE', success => 'تم حفظ الحساب', code => <<'SQL');
 DECLARE
   l_lvl NUMBER := 1;
@@ -572,17 +585,19 @@ BEGIN
   END IF;
   IF :P10_ACCOUNT_ID IS NULL THEN
     INSERT INTO accounts (account_code, name_ar, name_en, parent_id, acc_level, acc_type, nature,
-                          cash_bank, currency_code, company_id, is_active)
+                          cash_bank, currency_code, company_id, is_active, credit_limit)
     VALUES (:P10_ACCOUNT_CODE, :P10_NAME_AR, :P10_NAME_EN, :P10_PARENT_ID, l_lvl, :P10_ACC_TYPE, :P10_NATURE,
             CASE WHEN l_lvl = 4 THEN NVL(:P10_CASH_BANK, 'N') ELSE 'N' END,
-            :P10_CURRENCY_CODE, :P10_COMPANY_ID, NVL(:P10_IS_ACTIVE, 'Y'))
+            :P10_CURRENCY_CODE, :P10_COMPANY_ID, NVL(:P10_IS_ACTIVE, 'Y'),
+            CASE WHEN l_lvl = 4 AND :P10_ACCOUNT_CODE LIKE '1106%' THEN TO_NUMBER(REPLACE(:P10_CREDIT_LIMIT, ',', '')) END)
     RETURNING account_id INTO :P10_ACCOUNT_ID;
   ELSE
     UPDATE accounts
     SET account_code = :P10_ACCOUNT_CODE, name_ar = :P10_NAME_AR, name_en = :P10_NAME_EN,
         parent_id = :P10_PARENT_ID, acc_level = l_lvl, acc_type = :P10_ACC_TYPE, nature = :P10_NATURE,
         cash_bank = CASE WHEN l_lvl = 4 THEN NVL(:P10_CASH_BANK, 'N') ELSE 'N' END,
-        currency_code = :P10_CURRENCY_CODE, company_id = :P10_COMPANY_ID, is_active = NVL(:P10_IS_ACTIVE, 'Y')
+        currency_code = :P10_CURRENCY_CODE, company_id = :P10_COMPANY_ID, is_active = NVL(:P10_IS_ACTIVE, 'Y'),
+        credit_limit = CASE WHEN l_lvl = 4 AND :P10_ACCOUNT_CODE LIKE '1106%' THEN TO_NUMBER(REPLACE(:P10_CREDIT_LIMIT, ',', '')) END
     WHERE account_id = :P10_ACCOUNT_ID;
   END IF;
 END;
@@ -603,6 +618,7 @@ SELECT a.account_id,
        DECODE(a.acc_type,'ASSET','أصول','LIAB','خصوم','EQUITY','حقوق ملكية','REV','إيرادات','EXP','مصروفات') AS "النوع",
        DECODE(a.nature,'D','مدين','دائن') AS "الطبيعة",
        DECODE(a.cash_bank,'C','خزينة','B','بنك') AS "خزينة / بنك",
+       a.credit_limit AS "حد الائتمان",
        DECODE(a.is_active,'Y','فعّال','موقوف') AS "الحالة"
 FROM   accounts a
 JOIN   accounts p ON p.account_id = a.parent_id

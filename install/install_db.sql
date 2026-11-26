@@ -57,6 +57,8 @@ PROMPT ===== 24_backup.sql
 @db/24_backup.sql
 PROMPT ===== 25_damage_loss.sql
 @db/25_damage_loss.sql
+PROMPT ===== 26_credit_limit.sql
+@db/26_credit_limit.sql
 
 PROMPT ===== Invalid objects check
 SELECT object_type, object_name FROM user_objects WHERE status = 'INVALID';

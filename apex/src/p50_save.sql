@@ -131,6 +131,25 @@ BEGIN
   l_net := l_gross - l_disc;
   IF l_net <= 0 THEN err('صافي الفاتورة يجب أن يكون أكبر من صفر'); END IF;
 
+  -- حد الائتمان (db/26): عند ترحيل بيع آجل لعميل ، رصيده الحالي + صافي الفاتورة لا يتجاوز حده (فارغ / صفر = بدون حد)
+  IF l_type = 'SALE' AND l_action = 'POST' AND l_pay = 'CREDIT' AND l_ctype = 'EXTERNAL' AND l_acc IS NOT NULL AND l_net > 0 THEN
+    DECLARE l_limit NUMBER; l_bal NUMBER; l_aname VARCHAR2(200);
+    BEGIN
+      SELECT MAX(credit_limit), MAX(name_ar) INTO l_limit, l_aname FROM accounts WHERE account_id = l_acc;
+      IF NVL(l_limit, 0) > 0 THEN
+        SELECT NVL(SUM(jl.debit_base - jl.credit_base), 0) INTO l_bal
+        FROM   journal_lines jl JOIN journals j ON j.journal_id = jl.journal_id AND j.status IN ('POSTED','REVERSED')
+        WHERE  jl.account_id = l_acc;
+        IF l_bal + l_net * NVL(l_rate, 1) > l_limit THEN
+          err('تجاوز حد الائتمان للعميل ' || l_aname || ': الحد ' || TO_CHAR(l_limit, 'FM999G999G999G990D00')
+              || ' ، الرصيد الحالي ' || TO_CHAR(l_bal, 'FM999G999G999G990D00')
+              || ' ، الفاتورة ' || TO_CHAR(l_net * NVL(l_rate, 1), 'FM999G999G999G990D00')
+              || '. احفظها مسودة أو عدّل الحد من شجرة الحسابات');
+        END IF;
+      END IF;
+    END;
+  END IF;
+
   -- البيع: الرصيد يجب أن يكفي
   IF l_type = 'SALE' AND l_action = 'POST' THEN
     FOR r IN (SELECT i.item_code, SUM(j.qty * u.factor) need, NVL(MAX(b.qty_base), 0) bal
