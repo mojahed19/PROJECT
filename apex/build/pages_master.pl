@@ -635,12 +635,14 @@ end_page();
 # =====================================================================
 page(id => 199, name => 'بيانات الشركة', alias => 'COMPANY', auth => 'IS_GM');
 region(name => 'f', title => 'بيانات الشركة', type => 'static', seq => 10,
-       html => '<div class="jl-hint">يظهر اسم الشركة وعنوانها وهاتفها ورقمها الضريبي في رأس الصفحات وفي كل التقارير والفواتير المطبوعة.</div>');
+       html => '<div class="jl-hint">يظهر اسم الشركة وعنوانها وهاتفها في رأس الصفحات وفي كل التقارير والفواتير المطبوعة.</div>');
+# ترتيب الحقول كما ضبطه المستخدم في APEX Builder (2026-11-25 23:47): الاسم والهاتف والاسم الإنجليزي في سطر ، ثم العنوان ،
+# والرقم الضريبي حقل مخفي
 item(name => 'P199_NAME_AR', region => 'f', label => 'اسم الشركة', seq => 10, max => 150);
-item(name => 'P199_NAME_EN', region => 'f', label => 'الاسم بالإنجليزية', seq => 20, same_line => 1, max => 150);
-item(name => 'P199_ADDRESS', region => 'f', label => 'العنوان', seq => 30, max => 300);
-item(name => 'P199_PHONE', region => 'f', label => 'الهاتف', seq => 40, max => 50);
-item(name => 'P199_TAX_NO', region => 'f', label => 'الرقم الضريبي', seq => 50, same_line => 1, max => 50);
+item(name => 'P199_PHONE', region => 'f', label => 'الهاتف', seq => 20, same_line => 1, max => 50);
+item(name => 'P199_NAME_EN', region => 'f', label => 'الاسم بالإنجليزية', seq => 30, same_line => 1, max => 150);
+item(name => 'P199_ADDRESS', region => 'f', label => 'العنوان', seq => 40, max => 300);
+item(name => 'P199_TAX_NO', region => 'f', type => 'hidden', protected => 1, no_checksum => 1, seq => 60);   # أخفاه المستخدم
 button(name => 'SAVE', region => 'f', label => 'حفظ', hot => 1);
 process(name => 'LOAD', point => 'BEFORE_HEADER', code => <<'SQL');
 BEGIN

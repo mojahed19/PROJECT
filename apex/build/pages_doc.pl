@@ -450,16 +450,17 @@ item(name => 'P55_COMPANY_ID', region => 'head', type => 'hidden', seq => 7);
 item(name => 'P55_LOADED_ID', region => 'head', type => 'hidden', seq => 8);
 item(name => 'P55_INVOICE_DATE', region => 'head', type => 'date', label => 'التاريخ', seq => 20, required => 1);
 item(name => 'P55_SUPPLIER_INV_NO', region => 'head', label => 'رقم فاتورة المورد', seq => 30, same_line => 1, max => 50);
-item(name => 'P55_PAY_TYPE', region => 'head', type => 'select', label => 'طريقة الدفع', seq => 40,
+# ترتيب وإخفاء الحقول كما ضبطه المستخدم في APEX Builder (2026-11-25 21:32)
+item(name => 'P55_PAY_TYPE', region => 'head', type => 'select', label => 'طريقة الدفع', seq => 40, same_line => 1,
      lov => "SELECT 'نقدي' d, 'CASH' r FROM dual UNION ALL SELECT 'آجل' d, 'CREDIT' r FROM dual");
-item(name => 'P55_SUPPLIER_ACCOUNT_ID', region => 'head', type => 'select', label => 'الحساب', seq => 50, same_line => 1, null => '- اختر -',
+item(name => 'P55_SUPPLIER_ACCOUNT_ID', region => 'head', type => 'select', label => 'الحساب', seq => 50, null => '- اختر -',
      lov => "SELECT account_code || ' - ' || name_ar d, account_id r FROM accounts WHERE account_id = :P55_SUPPLIER_ACCOUNT_ID");
-item(name => 'P55_SUPPLIER_NAME', region => 'head', label => 'اسم المورد', seq => 60, same_line => 1, max => 150);
-item(name => 'P55_WAREHOUSE_ID', region => 'head', type => 'select', label => 'المخزن', seq => 70, null => 1, required => 1,
+item(name => 'P55_SUPPLIER_NAME', region => 'head', type => 'hidden', protected => 1, no_checksum => 1, seq => 60);   # أخفاه المستخدم
+item(name => 'P55_WAREHOUSE_ID', region => 'head', type => 'select', label => 'المخزن', seq => 70, same_line => 1, null => 1, required => 1,
      lov => "SELECT name_ar d, warehouse_id r FROM warehouses WHERE company_id = :G_PARENT_ID AND is_active = 'Y' ORDER BY name_ar");
 item(name => 'P55_CURRENCY_CODE', region => 'head', type => 'select', label => 'العملة', lov => $LOV{currencies}, seq => 80, same_line => 1);
 item(name => 'P55_EXCHANGE_RATE', region => 'head', label => 'سعر الصرف', seq => 90, same_line => 1);
-item(name => 'P55_DISCOUNT_AMOUNT', region => 'head', label => 'خصم إضافي', seq => 100);
+item(name => 'P55_DISCOUNT_AMOUNT', region => 'head', type => 'hidden', protected => 1, no_checksum => 1, seq => 100);   # أخفاه المستخدم
 item(name => 'P55_DESCRIPTION', region => 'head', label => 'البيان', seq => 110, same_line => 1, max => 500);
 region(name => 'lines', title => 'الأصناف', type => 'static', seq => 20, html => <<'HTML');
 <div class="jl-hint">ابحث بالكود أو بجزء من الاسم أو بالباركود. الأسهم للتنقل في النتائج و Enter للاختيار.</div>

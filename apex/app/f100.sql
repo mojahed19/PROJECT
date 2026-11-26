@@ -58,7 +58,7 @@ wwv_imp_workspace.create_flow(
 ,p_substitution_string_01=>'APP_NAME'
 ,p_substitution_value_01=>unistr('\0627\0644\0645\0624\0633\0633\0629 \0627\0644\062A\0639\0627\0648\0646\064A\0629 \0627\0644\0648\0637\0646\064A\0629')
 ,p_file_prefix=>nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
-,p_files_version=>95663528
+,p_files_version=>95664612
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 );
@@ -25494,6 +25494,7 @@ wwv_flow_imp_page.create_page_item(
 ,p_display_as=>'NATIVE_SELECT_LIST'
 ,p_lov=>unistr('SELECT ''\0646\0642\062F\064A'' d, ''CASH'' r FROM dual UNION ALL SELECT ''\0622\062C\0644'' d, ''CREDIT'' r FROM dual')
 ,p_lov_display_extra=>'NO'
+,p_begin_on_new_line=>'N'
 ,p_field_template=>wwv_flow_imp.id(6768309489757532)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
@@ -25511,7 +25512,6 @@ wwv_flow_imp_page.create_page_item(
 ,p_lov_display_extra=>'NO'
 ,p_lov_display_null=>'YES'
 ,p_lov_null_text=>unistr('- \0627\062E\062A\0631 -')
-,p_begin_on_new_line=>'N'
 ,p_field_template=>wwv_flow_imp.id(6768309489757532)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
@@ -25521,16 +25521,10 @@ wwv_flow_imp_page.create_page_item(
 ,p_name=>'P55_SUPPLIER_NAME'
 ,p_item_sequence=>60
 ,p_item_plug_id=>wwv_flow_imp.id(91000000000437)
-,p_prompt=>unistr('\0627\0633\0645 \0627\0644\0645\0648\0631\062F')
-,p_attribute_01=>'N'
-,p_attribute_02=>'N'
-,p_attribute_04=>'TEXT'
-,p_attribute_05=>'BOTH'
-,p_cMaxlength=>150
-,p_cSize=>30
-,p_display_as=>'NATIVE_TEXT_FIELD'
-,p_begin_on_new_line=>'N'
-,p_field_template=>wwv_flow_imp.id(6768309489757532)
+,p_prompt=>'P55_SUPPLIER_NAME'
+,p_attribute_01=>'Y'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_field_template=>wwv_flow_imp.id(6768064019757529)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
 );
@@ -25547,6 +25541,7 @@ wwv_flow_imp_page.create_page_item(
 ,p_lov_display_extra=>'NO'
 ,p_lov_display_null=>'YES'
 ,p_lov_null_text=>''
+,p_begin_on_new_line=>'N'
 ,p_field_template=>wwv_flow_imp.id(6769647329757532)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
@@ -25582,15 +25577,10 @@ wwv_flow_imp_page.create_page_item(
 ,p_name=>'P55_DISCOUNT_AMOUNT'
 ,p_item_sequence=>100
 ,p_item_plug_id=>wwv_flow_imp.id(91000000000437)
-,p_prompt=>unistr('\062E\0635\0645 \0625\0636\0627\0641\064A')
-,p_attribute_01=>'N'
-,p_attribute_02=>'N'
-,p_attribute_04=>'TEXT'
-,p_attribute_05=>'BOTH'
-,p_cMaxlength=>4000
-,p_cSize=>30
-,p_display_as=>'NATIVE_TEXT_FIELD'
-,p_field_template=>wwv_flow_imp.id(6768309489757532)
+,p_prompt=>'P55_DISCOUNT_AMOUNT'
+,p_attribute_01=>'Y'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_field_template=>wwv_flow_imp.id(6768064019757529)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
 );
@@ -48675,7 +48665,7 @@ wwv_flow_imp_page.create_page_plug(
 ,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
   'expand_shortcuts', 'N',
   'output_as', 'HTML')).to_clob
-,p_plug_source=>unistr('<div class="jl-hint">\064A\0638\0647\0631 \0627\0633\0645 \0627\0644\0634\0631\0643\0629 \0648\0639\0646\0648\0627\0646\0647\0627 \0648\0647\0627\062A\0641\0647\0627 \0648\0631\0642\0645\0647\0627 \0627\0644\0636\0631\064A\0628\064A \0641\064A \0631\0623\0633 \0627\0644\0635\0641\062D\0627\062A \0648\0641\064A \0643\0644 \0627\0644\062A\0642\0627\0631\064A\0631 \0648\0627\0644\0641\0648\0627\062A\064A\0631 \0627\0644\0645\0637\0628\0648\0639\0629.</div>')
+,p_plug_source=>unistr('<div class="jl-hint">\064A\0638\0647\0631 \0627\0633\0645 \0627\0644\0634\0631\0643\0629 \0648\0639\0646\0648\0627\0646\0647\0627 \0648\0647\0627\062A\0641\0647\0627 \0641\064A \0631\0623\0633 \0627\0644\0635\0641\062D\0627\062A \0648\0641\064A \0643\0644 \0627\0644\062A\0642\0627\0631\064A\0631 \0648\0627\0644\0641\0648\0627\062A\064A\0631 \0627\0644\0645\0637\0628\0648\0639\0629.</div>')
 );
 wwv_flow_imp_page.create_page_item(
  p_id=>wwv_flow_imp.id(91000000001523)
@@ -48696,8 +48686,26 @@ wwv_flow_imp_page.create_page_item(
 );
 wwv_flow_imp_page.create_page_item(
  p_id=>wwv_flow_imp.id(91000000001524)
-,p_name=>'P199_NAME_EN'
+,p_name=>'P199_PHONE'
 ,p_item_sequence=>20
+,p_item_plug_id=>wwv_flow_imp.id(91000000001522)
+,p_prompt=>unistr('\0627\0644\0647\0627\062A\0641')
+,p_attribute_01=>'N'
+,p_attribute_02=>'N'
+,p_attribute_04=>'TEXT'
+,p_attribute_05=>'BOTH'
+,p_cMaxlength=>50
+,p_cSize=>30
+,p_display_as=>'NATIVE_TEXT_FIELD'
+,p_begin_on_new_line=>'N'
+,p_field_template=>wwv_flow_imp.id(6768309489757532)
+,p_item_template_options=>'#DEFAULT#'
+,p_is_persistent=>'N'
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(91000000001525)
+,p_name=>'P199_NAME_EN'
+,p_item_sequence=>30
 ,p_item_plug_id=>wwv_flow_imp.id(91000000001522)
 ,p_prompt=>unistr('\0627\0644\0627\0633\0645 \0628\0627\0644\0625\0646\062C\0644\064A\0632\064A\0629')
 ,p_attribute_01=>'N'
@@ -48713,9 +48721,9 @@ wwv_flow_imp_page.create_page_item(
 ,p_is_persistent=>'N'
 );
 wwv_flow_imp_page.create_page_item(
- p_id=>wwv_flow_imp.id(91000000001525)
+ p_id=>wwv_flow_imp.id(91000000001526)
 ,p_name=>'P199_ADDRESS'
-,p_item_sequence=>30
+,p_item_sequence=>40
 ,p_item_plug_id=>wwv_flow_imp.id(91000000001522)
 ,p_prompt=>unistr('\0627\0644\0639\0646\0648\0627\0646')
 ,p_attribute_01=>'N'
@@ -48730,37 +48738,14 @@ wwv_flow_imp_page.create_page_item(
 ,p_is_persistent=>'N'
 );
 wwv_flow_imp_page.create_page_item(
- p_id=>wwv_flow_imp.id(91000000001526)
-,p_name=>'P199_PHONE'
-,p_item_sequence=>40
-,p_item_plug_id=>wwv_flow_imp.id(91000000001522)
-,p_prompt=>unistr('\0627\0644\0647\0627\062A\0641')
-,p_attribute_01=>'N'
-,p_attribute_02=>'N'
-,p_attribute_04=>'TEXT'
-,p_attribute_05=>'BOTH'
-,p_cMaxlength=>50
-,p_cSize=>30
-,p_display_as=>'NATIVE_TEXT_FIELD'
-,p_field_template=>wwv_flow_imp.id(6768309489757532)
-,p_item_template_options=>'#DEFAULT#'
-,p_is_persistent=>'N'
-);
-wwv_flow_imp_page.create_page_item(
  p_id=>wwv_flow_imp.id(91000000001527)
 ,p_name=>'P199_TAX_NO'
-,p_item_sequence=>50
+,p_item_sequence=>60
 ,p_item_plug_id=>wwv_flow_imp.id(91000000001522)
-,p_prompt=>unistr('\0627\0644\0631\0642\0645 \0627\0644\0636\0631\064A\0628\064A')
-,p_attribute_01=>'N'
-,p_attribute_02=>'N'
-,p_attribute_04=>'TEXT'
-,p_attribute_05=>'BOTH'
-,p_cMaxlength=>50
-,p_cSize=>30
-,p_display_as=>'NATIVE_TEXT_FIELD'
-,p_begin_on_new_line=>'N'
-,p_field_template=>wwv_flow_imp.id(6768309489757532)
+,p_prompt=>'P199_TAX_NO'
+,p_attribute_01=>'Y'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_field_template=>wwv_flow_imp.id(6768064019757529)
 ,p_item_template_options=>'#DEFAULT#'
 ,p_is_persistent=>'N'
 );
