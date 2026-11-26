@@ -60,16 +60,8 @@ DECLARE
     EXECUTE IMMEDIATE 'DELETE FROM ' || p_table || CASE WHEN p_where IS NOT NULL THEN ' WHERE ' || p_where END;
     DBMS_OUTPUT.PUT_LINE('DELETED ' || p_table || ' ' || SQL%ROWCOUNT);
   END;
-  -- منع حذف المستندات المرحّلة (db/22) يُعطَّل أثناء التنظيف فقط ، ويعود بعده حتى لو فشل التنظيف
-  PROCEDURE guards (p_on BOOLEAN) IS
-  BEGIN
-    FOR t IN (SELECT trigger_name FROM user_triggers WHERE trigger_name LIKE 'TRG\_NODEL\_%' ESCAPE '\') LOOP
-      EXECUTE IMMEDIATE 'ALTER TRIGGER ' || t.trigger_name || CASE WHEN p_on THEN ' ENABLE' ELSE ' DISABLE' END;
-    END LOOP;
-  END;
 BEGIN
   SELECT company_id INTO l_hq FROM companies WHERE is_parent = 'Y';
-  guards(FALSE);
 
   -- سجل المراجعة والإيضاحات
   del('doc_actions');
@@ -137,10 +129,8 @@ BEGIN
   del('warehouses');
   del('companies', 'is_parent = ''N''');
   COMMIT;
-  guards(TRUE);
 EXCEPTION WHEN OTHERS THEN
   ROLLBACK;
-  guards(TRUE);
   RAISE;
 END;
 /
